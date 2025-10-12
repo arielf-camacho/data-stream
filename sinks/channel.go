@@ -8,6 +8,13 @@ import (
 
 var _ = primitives.Sink[any](&ChannelSink[any]{})
 
+// ChannelSink is a sink that writes the values to a channel.
+//
+// Graphically, the ChannelSink looks like this:
+//
+// -- 1 -- 2 -- 3 -- 4 -- 5 -- | -->
+// -- ChannelSink --
+// -> 1 -- 2 -- 3 -- 4 -- 5 -- |
 type ChannelSink[T any] struct {
 	in  chan T
 	out chan T
