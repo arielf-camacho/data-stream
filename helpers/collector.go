@@ -25,7 +25,6 @@ func NewCollector[T any](ctx context.Context) *Collector[T] {
 	collector := &Collector[T]{
 		ctx:    ctx,
 		source: make(chan T),
-		items:  make([]T, 0),
 	}
 
 	collector.wg.Add(1)

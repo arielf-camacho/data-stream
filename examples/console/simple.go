@@ -5,7 +5,7 @@ import (
 
 	"github.com/arielf-camacho/data-stream/operators"
 	"github.com/arielf-camacho/data-stream/sinks"
-	"github.com/arielf-camacho/data-stream/sources/slice"
+	"github.com/arielf-camacho/data-stream/sources"
 )
 
 // Demonstrates how to use the data-stream package to
@@ -14,7 +14,7 @@ import (
 func main() {
 	outputCh := make(chan byte)
 
-	source := slice.
+	source := sources.
 		Slice([]byte{'1', '2', '3', '4', '5'}).
 		Build()
 

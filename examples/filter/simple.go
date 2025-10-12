@@ -6,7 +6,7 @@ import (
 	"github.com/arielf-camacho/data-stream/operators"
 	"github.com/arielf-camacho/data-stream/primitives"
 	"github.com/arielf-camacho/data-stream/sinks"
-	"github.com/arielf-camacho/data-stream/sources/slice"
+	"github.com/arielf-camacho/data-stream/sources"
 )
 
 func main() {
@@ -18,13 +18,13 @@ func main() {
 	onlyOdds := func(x int) (bool, error) { return x%2 != 0, nil }
 	onlyEvens := func(x int) (bool, error) { return x%2 == 0, nil }
 
-	source1 := slice.Slice([]int{10, 4, 5, 2, 9}).Build()
+	source1 := sources.Slice([]int{10, 4, 5, 2, 9}).Build()
 	filter1 := operators.Filter(onlyOdds).Build()
 	source1.To(filter1)
 	source1AsAny := operators.Map(int2any).Build()
 	filter1.To(source1AsAny)
 
-	source2 := slice.Slice([]int{8, 3, 6, 7, 1}).Build()
+	source2 := sources.Slice([]int{8, 3, 6, 7, 1}).Build()
 	filter2 := operators.Filter(onlyEvens).Build()
 	source2.To(filter2)
 	source2AsAny := operators.Map(int2any).Build()

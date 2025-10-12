@@ -6,7 +6,7 @@ import (
 	"github.com/arielf-camacho/data-stream/operators"
 	"github.com/arielf-camacho/data-stream/primitives"
 	"github.com/arielf-camacho/data-stream/sinks"
-	"github.com/arielf-camacho/data-stream/sources/slice"
+	"github.com/arielf-camacho/data-stream/sources"
 )
 
 func main() {
@@ -16,11 +16,11 @@ func main() {
 		return x, nil
 	}
 
-	source1 := slice.Slice([]byte{'1', '2', '3', '4', '5'}).Build()
+	source1 := sources.Slice([]byte{'1', '2', '3', '4', '5'}).Build()
 	mapSource1 := operators.Map(byte2Any).Build()
 	source1.To(mapSource1)
 
-	source2 := slice.Slice([]byte{'6', '7', '8', '9'}).Build()
+	source2 := sources.Slice([]byte{'6', '7', '8', '9'}).Build()
 	mapSource2 := operators.Map(byte2Any).Build()
 	source2.To(mapSource2)
 

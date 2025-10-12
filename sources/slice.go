@@ -1,4 +1,4 @@
-package slice
+package sources
 
 import (
 	"context"
@@ -23,7 +23,6 @@ type SliceSource[T any] struct {
 	slice []T
 
 	ctx        context.Context
-	err        chan error
 	out        chan T
 	bufferSize uint
 }
@@ -65,16 +64,11 @@ func (b *SliceSourceBuilder[T]) Build() *SliceSource[T] {
 		bufferSize: b.bufferSize,
 	}
 
-	source.err = make(chan error, 1)
 	source.out = make(chan T, source.bufferSize)
 
 	go source.start()
 
 	return source
-}
-
-func (s *SliceSource[T]) Err() <-chan error {
-	return s.err
 }
 
 func (s *SliceSource[T]) Out() <-chan T {
@@ -95,7 +89,6 @@ func (s *SliceSource[T]) To(in primitives.In[T]) {
 }
 
 func (s *SliceSource[T]) start() {
-	defer close(s.err)
 	defer close(s.out)
 
 	for _, v := range s.slice {

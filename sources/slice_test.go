@@ -1,4 +1,4 @@
-package slice_test
+package sources_test
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 
 	"github.com/arielf-camacho/data-stream/helpers"
 	"github.com/arielf-camacho/data-stream/primitives"
-	"github.com/arielf-camacho/data-stream/sources/slice"
+	"github.com/arielf-camacho/data-stream/sources"
 )
 
 func TestSliceSource_Out(t *testing.T) {
@@ -26,25 +26,25 @@ func TestSliceSource_Out(t *testing.T) {
 			ctx:      ctx,
 			expected: []int{1, 2, 3, 4, 5},
 			subject: func() (primitives.Source[int], context.Context) {
-				return slice.Slice(items).BufferSize(2).Build(), ctx
+				return sources.Slice(items).BufferSize(2).Build(), ctx
 			},
 		},
 		"without-buffer": {
 			expected: []int{1, 2, 3, 4, 5},
 			subject: func() (primitives.Source[int], context.Context) {
-				return slice.Slice(items).Build(), ctx
+				return sources.Slice(items).Build(), ctx
 			},
 		},
 		"empty-slice": {
 			expected: nil,
 			subject: func() (primitives.Source[int], context.Context) {
-				return slice.Slice([]int{}).Build(), ctx
+				return sources.Slice([]int{}).Build(), ctx
 			},
 		},
 		"nil-slice": {
 			expected: nil,
 			subject: func() (primitives.Source[int], context.Context) {
-				return slice.Slice(([]int)(nil)).Build(), ctx
+				return sources.Slice(([]int)(nil)).Build(), ctx
 			},
 		},
 		"cancelled-context": {
@@ -52,7 +52,7 @@ func TestSliceSource_Out(t *testing.T) {
 			subject: func() (primitives.Source[int], context.Context) {
 				ctx, cancel := context.WithCancel(ctx)
 				cancel()
-				return slice.Slice(items).Context(ctx).Build(), ctx
+				return sources.Slice(items).Context(ctx).Build(), ctx
 			},
 		},
 	}
@@ -94,7 +94,7 @@ func TestSliceSource_To(t *testing.T) {
 			t.Parallel()
 
 			// Given
-			source := slice.Slice(items).Build()
+			source := sources.Slice(items).Build()
 			collector := helpers.NewCollector[int](ctx)
 
 			// When
