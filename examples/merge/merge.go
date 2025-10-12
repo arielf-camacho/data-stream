@@ -16,27 +16,20 @@ func main() {
 		return x, nil
 	}
 
-	source1 := slice.NewSliceSource([]byte{
-		'1', '2', '3', '4', '5',
-	})
-	mapSource1 := operators.NewMapOperator(byte2Any)
+	source1 := slice.Slice([]byte{'1', '2', '3', '4', '5'}).Build()
+	mapSource1 := operators.Map(byte2Any).Build()
 	source1.To(mapSource1)
 
-	source2 := slice.NewSliceSource([]byte{
-		'6', '7', '8', '9',
-	})
-	mapSource2 := operators.NewMapOperator(byte2Any)
+	source2 := slice.Slice([]byte{'6', '7', '8', '9'}).Build()
+	mapSource2 := operators.Map(byte2Any).Build()
 	source2.To(mapSource2)
 
-	sink := sinks.NewChannelSink(outputCh)
+	sink := sinks.Channel(outputCh).Build()
 
-	merge := operators.NewMergeOperator(
-		[]primitives.Out[any]{
-			mapSource1,
-			mapSource2,
-		},
-		operators.WithBufferSizeForMerge(10),
-	)
+	merge := operators.
+		Merge([]primitives.Out[any]{mapSource1, mapSource2}).
+		BufferSize(10).
+		Build()
 	merge.To(sink)
 
 	for v := range outputCh {

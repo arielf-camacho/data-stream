@@ -16,17 +16,41 @@ type ChannelSink[T any] struct {
 	bufferSize uint
 }
 
-func NewChannelSink[T any](
-	channel chan T,
-	opts ...ChannelSinkOption[T],
-) *ChannelSink[T] {
-	ch := &ChannelSink[T]{
+// ChannelSinkBuilder is a fluent builder for ChannelSink.
+type ChannelSinkBuilder[T any] struct {
+	out        chan T
+	ctx        context.Context
+	bufferSize uint
+}
+
+// Channel creates a new ChannelSinkBuilder for building a ChannelSink.
+func Channel[T any](channel chan T) *ChannelSinkBuilder[T] {
+	return &ChannelSinkBuilder[T]{
 		out: channel,
 		ctx: context.Background(),
 	}
+}
 
-	for _, opt := range opts {
-		opt(ch)
+// Context sets the context for the ChannelSink.
+func (b *ChannelSinkBuilder[T]) Context(
+	ctx context.Context,
+) *ChannelSinkBuilder[T] {
+	b.ctx = ctx
+	return b
+}
+
+// BufferSize sets the buffer size for the ChannelSink input channel.
+func (b *ChannelSinkBuilder[T]) BufferSize(size uint) *ChannelSinkBuilder[T] {
+	b.bufferSize = size
+	return b
+}
+
+// Build creates and starts the ChannelSink.
+func (b *ChannelSinkBuilder[T]) Build() *ChannelSink[T] {
+	ch := &ChannelSink[T]{
+		out:        b.out,
+		ctx:        b.ctx,
+		bufferSize: b.bufferSize,
 	}
 
 	ch.in = make(chan T, ch.bufferSize)

@@ -31,18 +31,47 @@ type FilterOperator[T any] struct {
 	out       chan T
 }
 
-// NewFilterOperator returns a new FilterOperator given the predicate function.
-func NewFilterOperator[T any](
-	predicate func(T) (bool, error),
-	opts ...FilterOperatorOption[T],
-) *FilterOperator[T] {
-	operator := &FilterOperator[T]{
+// FilterBuilder is a fluent builder for FilterOperator.
+type FilterBuilder[T any] struct {
+	predicate    func(T) (bool, error)
+	ctx          context.Context
+	errorHandler func(error)
+	bufferSize   uint
+}
+
+// Filter creates a new FilterBuilder for building a FilterOperator.
+func Filter[T any](predicate func(T) (bool, error)) *FilterBuilder[T] {
+	return &FilterBuilder[T]{
 		predicate: predicate,
 		ctx:       context.Background(),
 	}
+}
 
-	for _, opt := range opts {
-		opt(operator)
+// Context sets the context for the FilterOperator.
+func (b *FilterBuilder[T]) Context(ctx context.Context) *FilterBuilder[T] {
+	b.ctx = ctx
+	return b
+}
+
+// ErrorHandler sets the error handler for the FilterOperator.
+func (b *FilterBuilder[T]) ErrorHandler(handler func(error)) *FilterBuilder[T] {
+	b.errorHandler = handler
+	return b
+}
+
+// BufferSize sets the buffer size for the FilterOperator channels.
+func (b *FilterBuilder[T]) BufferSize(size uint) *FilterBuilder[T] {
+	b.bufferSize = size
+	return b
+}
+
+// Build creates and starts the FilterOperator.
+func (b *FilterBuilder[T]) Build() *FilterOperator[T] {
+	operator := &FilterOperator[T]{
+		predicate:    b.predicate,
+		ctx:          b.ctx,
+		errorHandler: b.errorHandler,
+		bufferSize:   b.bufferSize,
 	}
 
 	operator.in = make(chan T, operator.bufferSize)

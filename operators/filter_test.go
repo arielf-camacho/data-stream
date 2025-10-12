@@ -27,7 +27,7 @@ func TestFilterOperator_Out(t *testing.T) {
 		"filters-values-matching-predicate": {
 			expected: []int{6, 7, 8, 9, 10},
 			subject: func() (primitives.Operator[int, int], context.Context) {
-				op := operators.NewFilterOperator(greaterThan5)
+				op := operators.Filter(greaterThan5).Build()
 				go func() {
 					for _, item := range items {
 						op.In() <- item
@@ -41,7 +41,7 @@ func TestFilterOperator_Out(t *testing.T) {
 			expected: []int{1, 2, 3, 4, 5},
 			subject: func() (primitives.Operator[int, int], context.Context) {
 				alwaysTrue := func(x int) (bool, error) { return true, nil }
-				op := operators.NewFilterOperator(alwaysTrue)
+				op := operators.Filter(alwaysTrue).Build()
 				go func() {
 					for _, item := range []int{1, 2, 3, 4, 5} {
 						op.In() <- item
@@ -55,7 +55,7 @@ func TestFilterOperator_Out(t *testing.T) {
 			expected: nil,
 			subject: func() (primitives.Operator[int, int], context.Context) {
 				alwaysFalse := func(x int) (bool, error) { return false, nil }
-				op := operators.NewFilterOperator(alwaysFalse)
+				op := operators.Filter(alwaysFalse).Build()
 				go func() {
 					for _, item := range items {
 						op.In() <- item
@@ -68,7 +68,7 @@ func TestFilterOperator_Out(t *testing.T) {
 		"empty-input": {
 			expected: nil,
 			subject: func() (primitives.Operator[int, int], context.Context) {
-				op := operators.NewFilterOperator(greaterThan5)
+				op := operators.Filter(greaterThan5).Build()
 				close(op.In())
 				return op, ctx
 			},
@@ -77,7 +77,7 @@ func TestFilterOperator_Out(t *testing.T) {
 			expected: []int{2, 4, 6, 8, 10},
 			subject: func() (primitives.Operator[int, int], context.Context) {
 				isEven := func(x int) (bool, error) { return x%2 == 0, nil }
-				op := operators.NewFilterOperator(isEven)
+				op := operators.Filter(isEven).Build()
 				go func() {
 					for _, item := range items {
 						op.In() <- item
@@ -92,10 +92,7 @@ func TestFilterOperator_Out(t *testing.T) {
 			subject: func() (primitives.Operator[int, int], context.Context) {
 				ctx, cancel := context.WithCancel(ctx)
 				cancel()
-				op := operators.NewFilterOperator(
-					greaterThan5,
-					operators.WithContextForFilter[int](ctx),
-				)
+				op := operators.Filter(greaterThan5).Context(ctx).Build()
 				go func() {
 					for _, item := range items {
 						op.In() <- item
@@ -108,10 +105,7 @@ func TestFilterOperator_Out(t *testing.T) {
 		"with-buffer-size": {
 			expected: []int{6, 7, 8, 9, 10},
 			subject: func() (primitives.Operator[int, int], context.Context) {
-				op := operators.NewFilterOperator(
-					greaterThan5,
-					operators.WithBufferSizeForFilter[int](5),
-				)
+				op := operators.Filter(greaterThan5).BufferSize(5).Build()
 				go func() {
 					for _, item := range items {
 						op.In() <- item
@@ -160,14 +154,10 @@ func TestFilterOperator_ErrorHandling(t *testing.T) {
 					}
 					return x > 3, nil
 				}
-				op := operators.NewFilterOperator(
-					errPredicate,
-					operators.WithErrorHandlerForFilter[int](
-						func(err error) {
-							errCh <- err
-						},
-					),
-				)
+				op := operators.
+					Filter(errPredicate).
+					ErrorHandler(func(err error) { errCh <- err }).
+					Build()
 				go func() {
 					for _, item := range items {
 						op.In() <- item
@@ -190,14 +180,10 @@ func TestFilterOperator_ErrorHandling(t *testing.T) {
 					}
 					return true, nil
 				}
-				op := operators.NewFilterOperator(
-					errPredicate,
-					operators.WithErrorHandlerForFilter[int](
-						func(err error) {
-							errCh <- err
-						},
-					),
-				)
+				op := operators.
+					Filter(errPredicate).
+					ErrorHandler(func(err error) { errCh <- err }).
+					Build()
 				go func() {
 					for _, item := range items {
 						op.In() <- item
@@ -271,7 +257,7 @@ func TestFilterOperator_To(t *testing.T) {
 				*operators.FilterOperator[int],
 				*helpers.Collector[int],
 			) {
-				op := operators.NewFilterOperator(greaterThan5)
+				op := operators.Filter(greaterThan5).Build()
 				collector := helpers.NewCollector[int](ctx)
 
 				go func() {
@@ -290,10 +276,8 @@ func TestFilterOperator_To(t *testing.T) {
 				*operators.FilterOperator[int],
 				*helpers.Collector[int],
 			) {
-				isOdd := func(x int) (bool, error) {
-					return x%2 != 0, nil
-				}
-				op := operators.NewFilterOperator(isOdd)
+				isOdd := func(x int) (bool, error) { return x%2 != 0, nil }
+				op := operators.Filter(isOdd).Build()
 				collector := helpers.NewCollector[int](ctx)
 
 				go func() {
@@ -312,10 +296,7 @@ func TestFilterOperator_To(t *testing.T) {
 				*operators.FilterOperator[int],
 				*helpers.Collector[int],
 			) {
-				op := operators.NewFilterOperator(
-					greaterThan5,
-					operators.WithBufferSizeForFilter[int](10),
-				)
+				op := operators.Filter(greaterThan5).BufferSize(10).Build()
 				collector := helpers.NewCollector[int](ctx)
 
 				go func() {
@@ -341,8 +322,7 @@ func TestFilterOperator_To(t *testing.T) {
 			operator.To(collector)
 
 			// Then
-			assert.ElementsMatch(t, c.expected,
-				collector.Items())
+			assert.ElementsMatch(t, c.expected, collector.Items())
 		})
 	}
 }
@@ -361,17 +341,13 @@ func TestFilterOperator_ChainedFilters(t *testing.T) {
 			expected: []int{6, 8, 10},
 			subject: func() <-chan int {
 				// Filter 1: > 5
-				filter1 := operators.NewFilterOperator(
-					func(x int) (bool, error) {
-						return x > 5, nil
-					},
-				)
+				filter1 := operators.
+					Filter(func(x int) (bool, error) { return x > 5, nil }).
+					Build()
 				// Filter 2: even numbers
-				filter2 := operators.NewFilterOperator(
-					func(x int) (bool, error) {
-						return x%2 == 0, nil
-					},
-				)
+				filter2 := operators.
+					Filter(func(x int) (bool, error) { return x%2 == 0, nil }).
+					Build()
 
 				go func() {
 					for _, item := range items {
@@ -394,23 +370,17 @@ func TestFilterOperator_ChainedFilters(t *testing.T) {
 			expected: []int{6, 9},
 			subject: func() <-chan int {
 				// Filter 1: > 5
-				filter1 := operators.NewFilterOperator(
-					func(x int) (bool, error) {
-						return x > 5, nil
-					},
-				)
+				filter1 := operators.
+					Filter(func(x int) (bool, error) { return x > 5, nil }).
+					Build()
 				// Filter 2: < 10
-				filter2 := operators.NewFilterOperator(
-					func(x int) (bool, error) {
-						return x < 10, nil
-					},
-				)
+				filter2 := operators.
+					Filter(func(x int) (bool, error) { return x < 10, nil }).
+					Build()
 				// Filter 3: divisible by 3
-				filter3 := operators.NewFilterOperator(
-					func(x int) (bool, error) {
-						return x%3 == 0, nil
-					},
-				)
+				filter3 := operators.
+					Filter(func(x int) (bool, error) { return x%3 == 0, nil }).
+					Build()
 
 				go func() {
 					for _, item := range items {

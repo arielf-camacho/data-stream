@@ -24,15 +24,39 @@ type WriterSink struct {
 	writer     io.Writer
 }
 
-// NewWriterSink returns a new WriterSink given the io.Writer to write to.
-func NewWriterSink(w io.Writer, opts ...WriterSinkOption) *WriterSink {
-	writer := &WriterSink{
+// WriterSinkBuilder is a fluent builder for WriterSink.
+type WriterSinkBuilder struct {
+	writer     io.Writer
+	ctx        context.Context
+	bufferSize uint
+}
+
+// Writer creates a new WriterSinkBuilder for building a WriterSink.
+func Writer(w io.Writer) *WriterSinkBuilder {
+	return &WriterSinkBuilder{
 		writer: w,
 		ctx:    context.Background(),
 	}
+}
 
-	for _, opt := range opts {
-		opt(writer)
+// Context sets the context for the WriterSink.
+func (b *WriterSinkBuilder) Context(ctx context.Context) *WriterSinkBuilder {
+	b.ctx = ctx
+	return b
+}
+
+// BufferSize sets the buffer size for the WriterSink input channel.
+func (b *WriterSinkBuilder) BufferSize(size uint) *WriterSinkBuilder {
+	b.bufferSize = size
+	return b
+}
+
+// Build creates and starts the WriterSink.
+func (b *WriterSinkBuilder) Build() *WriterSink {
+	writer := &WriterSink{
+		writer:     b.writer,
+		ctx:        b.ctx,
+		bufferSize: b.bufferSize,
 	}
 
 	writer.in = make(chan []byte, writer.bufferSize)

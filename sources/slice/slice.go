@@ -28,19 +28,41 @@ type SliceSource[T any] struct {
 	bufferSize uint
 }
 
-// NewSliceSource returns a new SliceSource given the slice of values to stream
-// and the options to configure the SliceSource.
-func NewSliceSource[T any](
-	slice []T,
-	opts ...SliceSourceOption[T],
-) *SliceSource[T] {
-	source := &SliceSource[T]{
+// SliceSourceBuilder is a fluent builder for SliceSource.
+type SliceSourceBuilder[T any] struct {
+	slice      []T
+	ctx        context.Context
+	bufferSize uint
+}
+
+// Slice creates a new SliceSourceBuilder for building a SliceSource.
+func Slice[T any](slice []T) *SliceSourceBuilder[T] {
+	return &SliceSourceBuilder[T]{
 		slice: slice,
 		ctx:   context.Background(),
 	}
+}
 
-	for _, opt := range opts {
-		opt(source)
+// Context sets the context for the SliceSource.
+func (b *SliceSourceBuilder[T]) Context(
+	ctx context.Context,
+) *SliceSourceBuilder[T] {
+	b.ctx = ctx
+	return b
+}
+
+// BufferSize sets the buffer size for the SliceSource output channel.
+func (b *SliceSourceBuilder[T]) BufferSize(size uint) *SliceSourceBuilder[T] {
+	b.bufferSize = size
+	return b
+}
+
+// Build creates and starts the SliceSource.
+func (b *SliceSourceBuilder[T]) Build() *SliceSource[T] {
+	source := &SliceSource[T]{
+		slice:      b.slice,
+		ctx:        b.ctx,
+		bufferSize: b.bufferSize,
 	}
 
 	source.err = make(chan error, 1)

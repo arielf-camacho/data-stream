@@ -26,25 +26,25 @@ func TestSliceSource_Out(t *testing.T) {
 			ctx:      ctx,
 			expected: []int{1, 2, 3, 4, 5},
 			subject: func() (primitives.Source[int], context.Context) {
-				return slice.NewSliceSource(items, slice.WithBuffer[int](2)), ctx
+				return slice.Slice(items).BufferSize(2).Build(), ctx
 			},
 		},
 		"without-buffer": {
 			expected: []int{1, 2, 3, 4, 5},
 			subject: func() (primitives.Source[int], context.Context) {
-				return slice.NewSliceSource(items), ctx
+				return slice.Slice(items).Build(), ctx
 			},
 		},
 		"empty-slice": {
 			expected: nil,
 			subject: func() (primitives.Source[int], context.Context) {
-				return slice.NewSliceSource([]int{}), ctx
+				return slice.Slice([]int{}).Build(), ctx
 			},
 		},
 		"nil-slice": {
 			expected: nil,
 			subject: func() (primitives.Source[int], context.Context) {
-				return slice.NewSliceSource(([]int)(nil)), ctx
+				return slice.Slice(([]int)(nil)).Build(), ctx
 			},
 		},
 		"cancelled-context": {
@@ -52,7 +52,7 @@ func TestSliceSource_Out(t *testing.T) {
 			subject: func() (primitives.Source[int], context.Context) {
 				ctx, cancel := context.WithCancel(ctx)
 				cancel()
-				return slice.NewSliceSource(items, slice.WithContext[int](ctx)), ctx
+				return slice.Slice(items).Context(ctx).Build(), ctx
 			},
 		},
 	}
@@ -94,7 +94,7 @@ func TestSliceSource_To(t *testing.T) {
 			t.Parallel()
 
 			// Given
-			source := slice.NewSliceSource(items)
+			source := slice.Slice(items).Build()
 			collector := helpers.NewCollector[int](ctx)
 
 			// When

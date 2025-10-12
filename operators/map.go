@@ -33,19 +33,64 @@ type MapOperator[IN any, OUT any] struct {
 	out chan OUT
 }
 
-// NewMapOperator returns a new MapOperator given the transformation function.
-func NewMapOperator[IN any, OUT any](
+// MapBuilder is a fluent builder for MapOperator.
+type MapBuilder[IN any, OUT any] struct {
+	fn           func(IN) (OUT, error)
+	ctx          context.Context
+	parallelism  uint
+	errorHandler func(error)
+	bufferSize   uint
+}
+
+// Map creates a new MapBuilder for building a MapOperator.
+func Map[IN, OUT any](
 	fn func(IN) (OUT, error),
-	opts ...MapOperatorOption[IN, OUT],
-) *MapOperator[IN, OUT] {
-	operator := &MapOperator[IN, OUT]{
+) *MapBuilder[IN, OUT] {
+	return &MapBuilder[IN, OUT]{
 		fn:          fn,
 		parallelism: 1,
 		ctx:         context.Background(),
 	}
+}
 
-	for _, opt := range opts {
-		opt(operator)
+// Context sets the context for the MapOperator.
+func (b *MapBuilder[IN, OUT]) Context(
+	ctx context.Context,
+) *MapBuilder[IN, OUT] {
+	b.ctx = ctx
+	return b
+}
+
+// Parallelism sets the parallelism level for the MapOperator.
+func (b *MapBuilder[IN, OUT]) Parallelism(
+	p uint,
+) *MapBuilder[IN, OUT] {
+	b.parallelism = p
+	return b
+}
+
+// ErrorHandler sets the error handler for the MapOperator.
+func (b *MapBuilder[IN, OUT]) ErrorHandler(
+	handler func(error),
+) *MapBuilder[IN, OUT] {
+	b.errorHandler = handler
+	return b
+}
+
+// BufferSize sets the buffer size for the MapOperator channels.
+func (b *MapBuilder[IN, OUT]) BufferSize(size uint) *MapBuilder[IN, OUT] {
+	b.bufferSize = size
+	return b
+}
+
+// Build creates and starts the MapOperator.
+func (b *MapBuilder[IN, OUT]) Build() *MapOperator[IN, OUT] {
+	operator := &MapOperator[IN, OUT]{
+		fn:           b.fn,
+		ctx:          b.ctx,
+		parallelism:  b.parallelism,
+		errorHandler: b.errorHandler,
+		bufferSize:   b.bufferSize,
 	}
 
 	operator.in = make(chan IN, operator.bufferSize)

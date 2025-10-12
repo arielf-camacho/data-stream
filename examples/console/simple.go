@@ -14,20 +14,16 @@ import (
 func main() {
 	outputCh := make(chan byte)
 
-	source := slice.NewSliceSource([]byte{
-		'1', '2', '3', '4', '5',
-	})
+	source := slice.
+		Slice([]byte{'1', '2', '3', '4', '5'}).
+		Build()
 
-	findNextCharacter := func(x byte) (byte, error) {
-		return x + 1, nil
-	}
+	nextCharacter := operators.
+		Map(func(x byte) (byte, error) { return x + 1, nil }).
+		Parallelism(4).
+		Build()
 
-	nextCharacter := operators.NewMapOperator(
-		findNextCharacter,
-		operators.WithParallelismForMap[byte, byte](4),
-	)
-
-	sink := sinks.NewChannelSink(outputCh)
+	sink := sinks.Channel(outputCh).Build()
 
 	source.To(nextCharacter)
 	nextCharacter.To(sink)

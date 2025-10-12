@@ -18,7 +18,7 @@ func TestWriterSink_In(t *testing.T) {
 		ctx        context.Context
 		writer     *bytes.Buffer
 		streamTo   func(sink *WriterSink)
-		addOptions func(*[]WriterSinkOption)
+		bufferSize uint
 	}{
 		"streams-all-values-to-collector": {
 			ctx: ctx,
@@ -32,10 +32,8 @@ func TestWriterSink_In(t *testing.T) {
 					sink.In() <- []byte{byte(number)}
 				}
 			},
-			writer: bytes.NewBuffer([]byte{}),
-			addOptions: func(options *[]WriterSinkOption) {
-				*options = append(*options, WithBufferSizeForWriter(1))
-			},
+			writer:     bytes.NewBuffer([]byte{}),
+			bufferSize: 1,
 		},
 	}
 
@@ -43,13 +41,8 @@ func TestWriterSink_In(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			var options []WriterSinkOption
-			if c.addOptions != nil {
-				c.addOptions(&options)
-			}
-
 			// Given
-			sink := NewWriterSink(c.writer, options...)
+			sink := Writer(c.writer).BufferSize(c.bufferSize).Build()
 
 			// When
 			c.streamTo(sink)

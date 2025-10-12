@@ -28,7 +28,7 @@ func TestMapOperator_Out(t *testing.T) {
 		"sync-mode-transforms-all-values": {
 			expected: []int{2, 4, 6, 8, 10},
 			subject: func() (primitives.Operator[int, int], context.Context) {
-				op := operators.NewMapOperator(double)
+				op := operators.Map(double).Build()
 				go func() {
 					for _, item := range items {
 						op.In() <- item
@@ -41,10 +41,7 @@ func TestMapOperator_Out(t *testing.T) {
 		"async-mode-transforms-all-values": {
 			expected: []int{2, 4, 6, 8, 10},
 			subject: func() (primitives.Operator[int, int], context.Context) {
-				op := operators.NewMapOperator(
-					double,
-					operators.WithParallelismForMap[int, int](3),
-				)
+				op := operators.Map(double).Parallelism(3).Build()
 				go func() {
 					for _, item := range items {
 						op.In() <- item
@@ -57,7 +54,7 @@ func TestMapOperator_Out(t *testing.T) {
 		"empty-input": {
 			expected: nil,
 			subject: func() (primitives.Operator[int, int], context.Context) {
-				op := operators.NewMapOperator(double)
+				op := operators.Map(double).Build()
 				close(op.In())
 				return op, ctx
 			},
@@ -67,10 +64,7 @@ func TestMapOperator_Out(t *testing.T) {
 			subject: func() (primitives.Operator[int, int], context.Context) {
 				ctx, cancel := context.WithCancel(ctx)
 				cancel()
-				op := operators.NewMapOperator(
-					double,
-					operators.WithContextForMap[int, int](ctx),
-				)
+				op := operators.Map(double).Context(ctx).Build()
 				go func() {
 					for _, item := range items {
 						op.In() <- item
@@ -85,11 +79,7 @@ func TestMapOperator_Out(t *testing.T) {
 			subject: func() (primitives.Operator[int, int], context.Context) {
 				ctx, cancel := context.WithCancel(ctx)
 				cancel()
-				op := operators.NewMapOperator(
-					double,
-					operators.WithContextForMap[int, int](ctx),
-					operators.WithParallelismForMap[int, int](3),
-				)
+				op := operators.Map(double).Context(ctx).Parallelism(3).Build()
 				go func() {
 					for _, item := range items {
 						op.In() <- item
@@ -140,13 +130,11 @@ func TestMapOperator_ErrorHandling(t *testing.T) {
 					}
 					return x * 2, nil
 				}
-				op := operators.NewMapOperator(
-					errTransform,
-					operators.WithParallelismForMap[int, int](p),
-					operators.WithErrorHandlerForMap[int, int](
-						func(err error) { errCh <- err },
-					),
-				)
+				op := operators.
+					Map(errTransform).
+					Parallelism(p).
+					ErrorHandler(func(err error) { errCh <- err }).
+					Build()
 				go func() {
 					for _, item := range items {
 						op.In() <- item
@@ -167,13 +155,11 @@ func TestMapOperator_ErrorHandling(t *testing.T) {
 					}
 					return x * 2, nil
 				}
-				op := operators.NewMapOperator(
-					errTransform,
-					operators.WithParallelismForMap[int, int](p),
-					operators.WithErrorHandlerForMap[int, int](
-						func(err error) { errCh <- err },
-					),
-				)
+				op := operators.
+					Map(errTransform).
+					Parallelism(p).
+					ErrorHandler(func(err error) { errCh <- err }).
+					Build()
 				go func() {
 					for _, item := range items {
 						op.In() <- item
@@ -197,13 +183,11 @@ func TestMapOperator_ErrorHandling(t *testing.T) {
 					}
 					return x * 2, nil
 				}
-				op := operators.NewMapOperator(
-					errTransform,
-					operators.WithParallelismForMap[int, int](p),
-					operators.WithErrorHandlerForMap[int, int](
-						func(err error) { errCh <- err },
-					),
-				)
+				op := operators.
+					Map(errTransform).
+					Parallelism(p).
+					ErrorHandler(func(err error) { errCh <- err }).
+					Build()
 				go func() {
 					for _, item := range items {
 						op.In() <- item
@@ -275,7 +259,7 @@ func TestMapOperator_To(t *testing.T) {
 				*operators.MapOperator[int, int],
 				*helpers.Collector[int],
 			) {
-				op := operators.NewMapOperator(double)
+				op := operators.Map(double).Build()
 				collector := helpers.NewCollector[int](ctx)
 
 				go func() {
@@ -294,10 +278,7 @@ func TestMapOperator_To(t *testing.T) {
 				*operators.MapOperator[int, int],
 				*helpers.Collector[int],
 			) {
-				op := operators.NewMapOperator(
-					double,
-					operators.WithParallelismForMap[int, int](3),
-				)
+				op := operators.Map(double).Parallelism(3).Build()
 				collector := helpers.NewCollector[int](ctx)
 
 				go func() {
@@ -316,10 +297,7 @@ func TestMapOperator_To(t *testing.T) {
 				*operators.MapOperator[int, int],
 				*helpers.Collector[int],
 			) {
-				op := operators.NewMapOperator(
-					double,
-					operators.WithParallelismForMap[int, int](10),
-				)
+				op := operators.Map(double).Parallelism(10).Build()
 				collector := helpers.NewCollector[int](ctx)
 
 				go func() {
@@ -412,10 +390,7 @@ func TestMapOperator_ParallelExecution(t *testing.T) {
 			maxConcurrent.Store(0)
 
 			// Given
-			op := operators.NewMapOperator(
-				slowFunc,
-				operators.WithParallelismForMap[int, int](c.parallelism),
-			)
+			op := operators.Map(slowFunc).Parallelism(c.parallelism).Build()
 
 			go func() {
 				for _, item := range items {
