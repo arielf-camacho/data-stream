@@ -32,7 +32,6 @@ func TestMergeOperator_To(t *testing.T) {
 				collector := helpers.NewCollector[any](ctx)
 				merge := operators.NewMergeOperator(
 					[]primitives.Out[any]{source1, source2},
-					collector,
 				)
 
 				return merge, collector
@@ -48,7 +47,6 @@ func TestMergeOperator_To(t *testing.T) {
 				collector := helpers.NewCollector[any](ctx)
 				merge := operators.NewMergeOperator(
 					[]primitives.Out[any]{source1, source2, source3},
-					collector,
 				)
 
 				return merge, collector
@@ -62,7 +60,6 @@ func TestMergeOperator_To(t *testing.T) {
 				collector := helpers.NewCollector[any](ctx)
 				merge := operators.NewMergeOperator(
 					[]primitives.Out[any]{source},
-					collector,
 				)
 
 				return merge, collector
@@ -77,7 +74,6 @@ func TestMergeOperator_To(t *testing.T) {
 				collector := helpers.NewCollector[any](ctx)
 				merge := operators.NewMergeOperator(
 					[]primitives.Out[any]{source1, source2},
-					collector,
 				)
 
 				return merge, collector
@@ -93,7 +89,6 @@ func TestMergeOperator_To(t *testing.T) {
 				collector := helpers.NewCollector[any](ctx)
 				merge := operators.NewMergeOperator(
 					[]primitives.Out[any]{source1, source2, source3},
-					collector,
 				)
 
 				return merge, collector
@@ -108,7 +103,6 @@ func TestMergeOperator_To(t *testing.T) {
 				collector := helpers.NewCollector[any](ctx)
 				merge := operators.NewMergeOperator(
 					[]primitives.Out[any]{source1, source2},
-					collector,
 					operators.WithBufferSizeForMerge(5),
 				)
 
@@ -170,7 +164,6 @@ func TestMergeOperator_ConcurrentMerging(t *testing.T) {
 				collector := helpers.NewCollector[any](ctx)
 				merge := operators.NewMergeOperator(
 					[]primitives.Out[any]{source1, source2},
-					collector,
 				)
 
 				return merge, collector
@@ -242,7 +235,6 @@ func TestMergeOperator_ContextCancellation(t *testing.T) {
 
 				merge := operators.NewMergeOperator(
 					[]primitives.Out[any]{source1, source2},
-					sink,
 					operators.WithContextForMerge[any, any](ctx),
 				)
 

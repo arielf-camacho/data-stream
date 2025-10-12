@@ -17,7 +17,6 @@ type MergeOperator struct {
 
 func NewMergeOperator(
 	from []primitives.Out[any],
-	to primitives.In[any],
 	opts ...MergeOperatorOption,
 ) *MergeOperator {
 	merge := &MergeOperator{

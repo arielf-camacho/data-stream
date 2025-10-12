@@ -35,10 +35,8 @@ func main() {
 			mapSource1,
 			mapSource2,
 		},
-		sink,
 		operators.WithBufferSizeForMerge(10),
 	)
-
 	merge.To(sink)
 
 	for v := range outputCh {
