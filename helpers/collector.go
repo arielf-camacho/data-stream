@@ -52,7 +52,7 @@ func (c *Collector[T]) start() {
 		case <-c.ctx.Done():
 			return
 		default:
+			c.items = append(c.items, v)
 		}
-		c.items = append(c.items, v)
 	}
 }
