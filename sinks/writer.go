@@ -9,7 +9,8 @@ import (
 
 var _ = primitives.Sink[[]byte](&WriterSink{})
 
-// WriterSink is a sink that writes the values to a io.WriterSink.
+// WriterSink is a sink that writes the values to a
+// io.WriterSink.
 //
 // Graphically, the WriterSink looks like this:
 //
@@ -17,8 +18,6 @@ var _ = primitives.Sink[[]byte](&WriterSink{})
 // -- WriterSink --
 // -> 1 -- 2 -- 3 -- 4 -- 5 -- |
 type WriterSink struct {
-	primitives.Sink[[]byte]
-
 	ctx        context.Context
 	bufferSize uint
 	in         chan []byte

@@ -34,7 +34,7 @@ func TestWriterSink_In(t *testing.T) {
 			},
 			writer: bytes.NewBuffer([]byte{}),
 			addOptions: func(options *[]WriterSinkOption) {
-				*options = append(*options, WithBufferSize(1))
+				*options = append(*options, WithBufferSizeForWriter(1))
 			},
 		},
 	}
