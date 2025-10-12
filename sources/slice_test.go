@@ -73,7 +73,7 @@ func TestSliceSource_Out(t *testing.T) {
 	}
 }
 
-func TestSliceSource_To(t *testing.T) {
+func TestSliceSource_ToFlow(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()

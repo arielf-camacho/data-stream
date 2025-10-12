@@ -17,7 +17,7 @@ func main() {
 	sink := sinks.Channel(outputCh).Build()
 
 	merge := operators.Merge(source1, source2).BufferSize(10).Build()
-	merge.To(sink)
+	merge.ToSink(sink)
 
 	for v := range outputCh {
 		fmt.Println("value:", v)

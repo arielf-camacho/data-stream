@@ -238,7 +238,7 @@ func TestFilterOperator_ErrorHandling(t *testing.T) {
 	}
 }
 
-func TestFilterOperator_To(t *testing.T) {
+func TestFilterOperator_ToFlow(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()

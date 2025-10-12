@@ -3,6 +3,7 @@ package operators
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 
 	"github.com/arielf-camacho/data-stream/primitives"
 )
@@ -24,7 +25,9 @@ type MergeOperator[T any] struct {
 
 	ctx        context.Context
 	bufferSize uint
-	out        chan T
+	activated  atomic.Bool
+
+	out chan T
 }
 
 // MergeBuilder is a fluent builder for MergeOperator.
@@ -70,7 +73,26 @@ func (b *MergeBuilder[T]) Build() *MergeOperator[T] {
 	return merge
 }
 
-func (m *MergeOperator[T]) To(in primitives.Inlet[T]) {
+func (m *MergeOperator[T]) ToFlow(in primitives.Flow[T, T]) primitives.Flow[T, T] {
+	m.assertNotActive()
+
+	go func() {
+		defer close(in.In())
+		for v := range m.out {
+			select {
+			case <-m.ctx.Done():
+				return
+			case in.In() <- v:
+			}
+		}
+	}()
+
+	return in
+}
+
+func (m *MergeOperator[T]) ToSink(in primitives.Sink[T]) {
+	m.assertNotActive()
+
 	go func() {
 		defer close(in.In())
 		for v := range m.out {
@@ -83,17 +105,11 @@ func (m *MergeOperator[T]) To(in primitives.Inlet[T]) {
 	}()
 }
 
-func (m *MergeOperator[T]) ToSink(in primitives.Sink[T]) {
-	go func() {
-		defer close(in.In())
-		for v := range m.out {
-			select {
-			case <-m.ctx.Done():
-				return
-			case in.In() <- v:
-			}
-		}
-	}()
+func (m *MergeOperator[T]) assertNotActive() {
+	if !m.activated.CompareAndSwap(false, true) {
+		// TODO: Use a logger to print this error, don't panic
+		panic("MergeOperator is already streaming, cannot be used as a flow again")
+	}
 }
 
 func (m *MergeOperator[T]) start() {

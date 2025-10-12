@@ -242,7 +242,7 @@ func TestMapOperator_ErrorHandling(t *testing.T) {
 	}
 }
 
-func TestMapOperator_To(t *testing.T) {
+func TestMapOperator_ToFlow(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()

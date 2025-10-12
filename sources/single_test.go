@@ -102,7 +102,7 @@ func TestSingleSource_Out(t *testing.T) {
 	}
 }
 
-func TestSingleSource_To(t *testing.T) {
+func TestSingleSource_ToFlow(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()

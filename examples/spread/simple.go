@@ -29,7 +29,12 @@ func main() {
 
 	spread := operators.Spread(source, map1, map2, map3).Build()
 
-	operators.Merge(spread.Outlets()...).Build().To(sink1)
+	merge := operators.Merge(spread.Outlets()...).Build()
+	mapMerge := operators.
+		Map(func(x string) (string, error) { return x + "merge", nil }).
+		Build()
+
+	merge.ToFlow(mapMerge).ToSink(sink1)
 
 	for v := range outputCh1 {
 		fmt.Println("value from sink1:", v)

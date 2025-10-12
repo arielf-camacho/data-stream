@@ -14,7 +14,7 @@ import (
 	"github.com/arielf-camacho/data-stream/sources"
 )
 
-func TestMergeOperator_To(t *testing.T) {
+func TestMergeOperator_ToFlow(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -106,7 +106,7 @@ func TestMergeOperator_To(t *testing.T) {
 			merge, collector := c.subject()
 
 			// When
-			merge.To(collector)
+			merge.ToSink(collector)
 
 			// Then
 			result := collector.Items()
@@ -183,7 +183,7 @@ func TestMergeOperator_ConcurrentMerging(t *testing.T) {
 			merge, collector := c.subject()
 
 			// When
-			merge.To(collector)
+			merge.ToSink(collector)
 
 			// Then
 			result := collector.Items()
