@@ -2,7 +2,9 @@ package sources
 
 import (
 	"context"
+	"sync/atomic"
 
+	"github.com/arielf-camacho/data-stream/helpers"
 	"github.com/arielf-camacho/data-stream/primitives"
 )
 
@@ -22,6 +24,7 @@ type SingleSource[T any] struct {
 
 	ctx          context.Context
 	errorHandler func(error)
+	activated    atomic.Bool
 
 	out chan T
 }
@@ -55,6 +58,7 @@ func (b *SingleSourceBuilder[T]) Build() *SingleSource[T] {
 	return source
 }
 
+// Context sets the context for the SingleSource.
 func (b *SingleSourceBuilder[T]) Context(
 	ctx context.Context,
 ) *SingleSourceBuilder[T] {
@@ -70,38 +74,82 @@ func (b *SingleSourceBuilder[T]) ErrorHandler(
 	return b
 }
 
+// Out returns the channel from which the values can be read.
 func (s *SingleSource[T]) Out() <-chan T {
 	return s.out
 }
 
-func (s *SingleSource[T]) To(in primitives.In[T]) {
+// ToFlow streams the values from the SingleSource to the given flow. This is
+// exclusive with ToSink, either one must be called.
+func (s *SingleSource[T]) ToFlow(
+	in primitives.Flow[T, T],
+) primitives.Flow[T, T] {
+	s.assertNotActive()
+
 	go func() {
 		defer close(in.In())
 
 		for v := range s.out {
 			select {
 			case <-s.ctx.Done():
+				helpers.Drain(s.out)
 				return
 			case in.In() <- v:
 			}
 		}
 	}()
+
+	return in
+}
+
+// ToSink streams the values from the SingleSource to the given sink. This is
+// exclusive with ToFlow, either one must be called.
+func (s *SingleSource[T]) ToSink(in primitives.Sink[T]) primitives.Sink[T] {
+	s.assertNotActive()
+
+	go func() {
+		defer close(in.In())
+		for v := range s.out {
+			select {
+			case <-s.ctx.Done():
+				helpers.Drain(s.out)
+				return
+			case in.In() <- v:
+			}
+		}
+	}()
+
+	return in
+}
+
+func (s *SingleSource[T]) assertNotActive() {
+	if !s.activated.CompareAndSwap(false, true) {
+		// TODO: Use a logger to print this error, don't panic
+		panic("SingleSource is already streaming, cannot be used as a source again")
+	}
 }
 
 func (s *SingleSource[T]) start() {
 	defer close(s.out)
 
+	// Early return if context already cancelled
 	select {
 	case <-s.ctx.Done():
 		return
 	default:
-		value, err := s.get()
-		if err != nil {
-			if s.errorHandler != nil {
-				s.errorHandler(err)
-			}
-			return
+	}
+
+	value, err := s.get()
+	if err != nil {
+		if s.errorHandler != nil {
+			s.errorHandler(err)
 		}
-		s.out <- value
+		return
+	}
+
+	select {
+	case <-s.ctx.Done():
+		return
+	case s.out <- value:
 	}
 }

@@ -155,7 +155,7 @@ func TestSingleSource_To(t *testing.T) {
 			collector := helpers.NewCollector[int](ctx)
 
 			// When
-			source.To(collector)
+			source.ToSink(collector)
 
 			var receivedErr error
 			if c.expectErrSet {
@@ -164,9 +164,6 @@ func TestSingleSource_To(t *testing.T) {
 				case <-time.After(100 * time.Millisecond):
 				}
 			}
-
-			// Wait a bit for the collector to finish
-			time.Sleep(50 * time.Millisecond)
 
 			// Then
 			assert.Equal(t, c.expected, collector.Items())

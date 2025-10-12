@@ -98,7 +98,7 @@ func TestSliceSource_To(t *testing.T) {
 			collector := helpers.NewCollector[int](ctx)
 
 			// When
-			source.To(collector)
+			source.ToSink(collector)
 
 			// Then
 			assert.Equal(t, c.expected, collector.Items())

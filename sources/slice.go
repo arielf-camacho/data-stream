@@ -2,7 +2,9 @@ package sources
 
 import (
 	"context"
+	"sync/atomic"
 
+	"github.com/arielf-camacho/data-stream/helpers"
 	"github.com/arielf-camacho/data-stream/primitives"
 )
 
@@ -22,9 +24,11 @@ var _ = primitives.Source[any](&SliceSource[any]{})
 type SliceSource[T any] struct {
 	slice []T
 
+	activated  atomic.Bool
 	ctx        context.Context
-	out        chan T
 	bufferSize uint
+
+	out chan T
 }
 
 // SliceSourceBuilder is a fluent builder for SliceSource.
@@ -71,21 +75,58 @@ func (b *SliceSourceBuilder[T]) Build() *SliceSource[T] {
 	return source
 }
 
+// Out returns the channel from which the values can be read.
 func (s *SliceSource[T]) Out() <-chan T {
 	return s.out
 }
 
-func (s *SliceSource[T]) To(in primitives.In[T]) {
+// ToFlow streams the values from the SliceSource to the given flow. This is
+// exclusive with ToSink, either one must be called.
+func (s *SliceSource[T]) ToFlow(
+	in primitives.Flow[T, T],
+) primitives.Flow[T, T] {
+	s.assertNotActive()
+
 	go func() {
 		defer close(in.In())
 		for v := range s.out {
 			select {
 			case <-s.ctx.Done():
+				helpers.Drain(s.out)
 				return
 			case in.In() <- v:
 			}
 		}
 	}()
+
+	return in
+}
+
+// ToSink streams the values from the SliceSource to the given sink. This is
+// exclusive with ToFlow, either one must be called.
+func (s *SliceSource[T]) ToSink(in primitives.Sink[T]) primitives.Sink[T] {
+	s.assertNotActive()
+
+	go func() {
+		defer close(in.In())
+		for v := range s.out {
+			select {
+			case <-s.ctx.Done():
+				helpers.Drain(s.out)
+				return
+			case in.In() <- v:
+			}
+		}
+	}()
+
+	return in
+}
+
+func (s *SliceSource[T]) assertNotActive() {
+	if !s.activated.CompareAndSwap(false, true) {
+		// TODO: Use a logger to print this error, don't panic
+		panic("SliceSource is already streaming, cannot be used as a source again")
+	}
 }
 
 func (s *SliceSource[T]) start() {
