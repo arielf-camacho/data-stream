@@ -19,3 +19,9 @@ func Collect[T any](ctx context.Context, source <-chan T) []T {
 
 	return result
 }
+
+// Drain drains the given channel until it is closed.
+func Drain[T any](source <-chan T) {
+	for range source {
+	}
+}

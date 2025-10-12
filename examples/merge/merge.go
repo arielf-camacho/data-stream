@@ -12,8 +12,8 @@ import (
 func main() {
 	outputCh := make(chan any)
 
-	byte2Any := func(x byte) any {
-		return x
+	byte2Any := func(x byte) (any, error) {
+		return x, nil
 	}
 
 	source1 := slice.NewSliceSource([]byte{

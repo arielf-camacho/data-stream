@@ -2,6 +2,7 @@ package operators_test
 
 import (
 	"context"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -18,7 +19,7 @@ func TestMapOperator_Out(t *testing.T) {
 
 	ctx := context.Background()
 	items := []int{1, 2, 3, 4, 5}
-	double := func(x int) int { return x * 2 }
+	double := func(x int) (int, error) { return x * 2, nil }
 
 	cases := map[string]struct {
 		expected []int
@@ -42,7 +43,7 @@ func TestMapOperator_Out(t *testing.T) {
 			subject: func() (primitives.Operator[int, int], context.Context) {
 				op := operators.NewMapOperator(
 					double,
-					operators.WithParallelism[int, int](3),
+					operators.WithParallelismForMap[int, int](3),
 				)
 				go func() {
 					for _, item := range items {
@@ -68,7 +69,7 @@ func TestMapOperator_Out(t *testing.T) {
 				cancel()
 				op := operators.NewMapOperator(
 					double,
-					operators.WithContext[int, int](ctx),
+					operators.WithContextForMap[int, int](ctx),
 				)
 				go func() {
 					for _, item := range items {
@@ -86,8 +87,8 @@ func TestMapOperator_Out(t *testing.T) {
 				cancel()
 				op := operators.NewMapOperator(
 					double,
-					operators.WithContext[int, int](ctx),
-					operators.WithParallelism[int, int](3),
+					operators.WithContextForMap[int, int](ctx),
+					operators.WithParallelismForMap[int, int](3),
 				)
 				go func() {
 					for _, item := range items {
@@ -116,12 +117,153 @@ func TestMapOperator_Out(t *testing.T) {
 	}
 }
 
+func TestMapOperator_ErrorHandling(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	items := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+
+	cases := map[string]struct {
+		expectedErr       error
+		expectedCollected []int
+		parallelism       uint
+		subject           func(uint, chan error) *operators.MapOperator[int, int]
+	}{
+		"error-stops-processing-sync-mode": {
+			expectedErr:       assert.AnError,
+			expectedCollected: []int{2, 4, 6, 8},
+			parallelism:       1,
+			subject: func(p uint, errCh chan error) *operators.MapOperator[int, int] {
+				errTransform := func(x int) (int, error) {
+					if x == 5 {
+						return 0, assert.AnError
+					}
+					return x * 2, nil
+				}
+				op := operators.NewMapOperator(
+					errTransform,
+					operators.WithParallelismForMap[int, int](p),
+					operators.WithErrorHandlerForMap[int, int](
+						func(err error) { errCh <- err },
+					),
+				)
+				go func() {
+					for _, item := range items {
+						op.In() <- item
+					}
+					close(op.In())
+				}()
+				return op
+			},
+		},
+		"error-stops-processing-async-mode": {
+			expectedErr:       assert.AnError,
+			expectedCollected: nil,
+			parallelism:       3,
+			subject: func(p uint, errCh chan error) *operators.MapOperator[int, int] {
+				errTransform := func(x int) (int, error) {
+					if x == 5 {
+						return 0, assert.AnError
+					}
+					return x * 2, nil
+				}
+				op := operators.NewMapOperator(
+					errTransform,
+					operators.WithParallelismForMap[int, int](p),
+					operators.WithErrorHandlerForMap[int, int](
+						func(err error) { errCh <- err },
+					),
+				)
+				go func() {
+					for _, item := range items {
+						op.In() <- item
+					}
+					close(op.In())
+				}()
+				return op
+			},
+		},
+		"multiple-errors-only-first-handled-sync": {
+			expectedErr:       assert.AnError,
+			expectedCollected: []int{2},
+			parallelism:       1,
+			subject: func(p uint, errCh chan error) *operators.MapOperator[int, int] {
+				errTransform := func(x int) (int, error) {
+					if x == 2 {
+						return 0, assert.AnError
+					}
+					if x == 5 {
+						return 0, assert.AnError
+					}
+					return x * 2, nil
+				}
+				op := operators.NewMapOperator(
+					errTransform,
+					operators.WithParallelismForMap[int, int](p),
+					operators.WithErrorHandlerForMap[int, int](
+						func(err error) { errCh <- err },
+					),
+				)
+				go func() {
+					for _, item := range items {
+						op.In() <- item
+					}
+					close(op.In())
+				}()
+				return op
+			},
+		},
+	}
+
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Given
+			errCh := make(chan error, 1)
+			operator := c.subject(c.parallelism, errCh)
+
+			// When
+			var receivedErr error
+			var collected []int
+
+			// Collect both output and error
+			var wg sync.WaitGroup
+			wg.Add(2)
+
+			go func() {
+				defer wg.Done()
+				collected = helpers.Collect(ctx, operator.Out())
+			}()
+
+			go func() {
+				defer wg.Done()
+				select {
+				case err := <-errCh:
+					receivedErr = err
+				case <-time.After(1 * time.Second):
+					// No error received
+				}
+			}()
+
+			wg.Wait()
+
+			// Then
+			assert.NotNil(t, receivedErr)
+			assert.Equal(t, c.expectedErr.Error(), receivedErr.Error())
+			if c.expectedCollected != nil {
+				assert.Subset(t, c.expectedCollected, collected)
+			}
+		})
+	}
+}
+
 func TestMapOperator_To(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
 	items := []int{1, 2, 3, 4, 5}
-	double := func(x int) int { return x * 2 }
+	double := func(x int) (int, error) { return x * 2, nil }
 
 	cases := map[string]struct {
 		expected []int
@@ -154,7 +296,7 @@ func TestMapOperator_To(t *testing.T) {
 			) {
 				op := operators.NewMapOperator(
 					double,
-					operators.WithParallelism[int, int](3),
+					operators.WithParallelismForMap[int, int](3),
 				)
 				collector := helpers.NewCollector[int](ctx)
 
@@ -176,7 +318,7 @@ func TestMapOperator_To(t *testing.T) {
 			) {
 				op := operators.NewMapOperator(
 					double,
-					operators.WithParallelism[int, int](10),
+					operators.WithParallelismForMap[int, int](10),
 				)
 				collector := helpers.NewCollector[int](ctx)
 
@@ -217,7 +359,7 @@ func TestMapOperator_ParallelExecution(t *testing.T) {
 	var concurrentCalls atomic.Int32
 	var maxConcurrent atomic.Int32
 
-	slowFunc := func(x int) int {
+	slowFunc := func(x int) (int, error) {
 		current := concurrentCalls.Add(1)
 		defer concurrentCalls.Add(-1)
 
@@ -233,7 +375,7 @@ func TestMapOperator_ParallelExecution(t *testing.T) {
 		}
 
 		time.Sleep(10 * time.Millisecond)
-		return x * 2
+		return x * 2, nil
 	}
 
 	cases := map[string]struct {
@@ -272,7 +414,7 @@ func TestMapOperator_ParallelExecution(t *testing.T) {
 			// Given
 			op := operators.NewMapOperator(
 				slowFunc,
-				operators.WithParallelism[int, int](c.parallelism),
+				operators.WithParallelismForMap[int, int](c.parallelism),
 			)
 
 			go func() {

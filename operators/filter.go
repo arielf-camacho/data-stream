@@ -3,6 +3,7 @@ package operators
 import (
 	"context"
 
+	"github.com/arielf-camacho/data-stream/helpers"
 	"github.com/arielf-camacho/data-stream/primitives"
 )
 
@@ -22,16 +23,17 @@ var _ = (primitives.Operator[int, int])(&FilterOperator[int]{})
 type FilterOperator[T any] struct {
 	ctx context.Context
 
-	bufferSize uint
+	errorHandler func(error)
+	bufferSize   uint
 
-	predicate func(T) bool
+	predicate func(T) (bool, error)
 	in        chan T
 	out       chan T
 }
 
 // NewFilterOperator returns a new FilterOperator given the predicate function.
 func NewFilterOperator[T any](
-	predicate func(T) bool,
+	predicate func(T) (bool, error),
 	opts ...FilterOperatorOption[T],
 ) *FilterOperator[T] {
 	operator := &FilterOperator[T]{
@@ -74,13 +76,20 @@ func (f *FilterOperator[T]) To(in primitives.In[T]) {
 
 func (f *FilterOperator[T]) start() {
 	defer close(f.out)
+	defer helpers.Drain(f.in)
 
 	for v := range f.in {
 		select {
 		case <-f.ctx.Done():
 			return
 		default:
-			passes := f.predicate(v)
+			passes, err := f.predicate(v)
+			if err != nil {
+				if f.errorHandler != nil {
+					f.errorHandler(err)
+				}
+				return
+			}
 			if passes {
 				select {
 				case <-f.ctx.Done():

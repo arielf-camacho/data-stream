@@ -14,9 +14,9 @@ func main() {
 
 	sink := sinks.NewChannelSink(outputCh)
 
-	int2any := func(x int) any { return x }
-	onlyOdds := func(x int) bool { return x%2 != 0 }
-	onlyEvens := func(x int) bool { return x%2 == 0 }
+	int2any := func(x int) (any, error) { return x, nil }
+	onlyOdds := func(x int) (bool, error) { return x%2 != 0, nil }
+	onlyEvens := func(x int) (bool, error) { return x%2 == 0, nil }
 
 	source1 := slice.NewSliceSource([]int{10, 4, 5, 2, 9})
 	filter1 := operators.NewFilterOperator(onlyOdds)

@@ -16,6 +16,16 @@ func WithContextForFilter[T any](
 	}
 }
 
+// WithErrorHandlerForFilter returns a FilterOperatorOption that sets the error
+// handler for the FilterOperator.
+func WithErrorHandlerForFilter[T any](
+	errorHandler func(error),
+) FilterOperatorOption[T] {
+	return func(f *FilterOperator[T]) {
+		f.errorHandler = errorHandler
+	}
+}
+
 // WithBufferSizeForFilter returns a FilterOperatorOption that sets the buffer
 // size for the FilterOperator.
 func WithBufferSizeForFilter[T any](

@@ -2,7 +2,9 @@ package operators_test
 
 import (
 	"context"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -16,7 +18,7 @@ func TestFilterOperator_Out(t *testing.T) {
 
 	ctx := context.Background()
 	items := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
-	greaterThan5 := func(x int) bool { return x > 5 }
+	greaterThan5 := func(x int) (bool, error) { return x > 5, nil }
 
 	cases := map[string]struct {
 		expected []int
@@ -38,7 +40,7 @@ func TestFilterOperator_Out(t *testing.T) {
 		"all-values-match-predicate": {
 			expected: []int{1, 2, 3, 4, 5},
 			subject: func() (primitives.Operator[int, int], context.Context) {
-				alwaysTrue := func(x int) bool { return true }
+				alwaysTrue := func(x int) (bool, error) { return true, nil }
 				op := operators.NewFilterOperator(alwaysTrue)
 				go func() {
 					for _, item := range []int{1, 2, 3, 4, 5} {
@@ -52,9 +54,7 @@ func TestFilterOperator_Out(t *testing.T) {
 		"no-values-match-predicate": {
 			expected: nil,
 			subject: func() (primitives.Operator[int, int], context.Context) {
-				alwaysFalse := func(x int) bool {
-					return false
-				}
+				alwaysFalse := func(x int) (bool, error) { return false, nil }
 				op := operators.NewFilterOperator(alwaysFalse)
 				go func() {
 					for _, item := range items {
@@ -76,7 +76,7 @@ func TestFilterOperator_Out(t *testing.T) {
 		"even-numbers-only": {
 			expected: []int{2, 4, 6, 8, 10},
 			subject: func() (primitives.Operator[int, int], context.Context) {
-				isEven := func(x int) bool { return x%2 == 0 }
+				isEven := func(x int) (bool, error) { return x%2 == 0, nil }
 				op := operators.NewFilterOperator(isEven)
 				go func() {
 					for _, item := range items {
@@ -139,12 +139,127 @@ func TestFilterOperator_Out(t *testing.T) {
 	}
 }
 
+func TestFilterOperator_ErrorHandling(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	items := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+
+	cases := map[string]struct {
+		expectedErr       error
+		expectedCollected []int
+		subject           func(chan error) *operators.FilterOperator[int]
+	}{
+		"error-stops-processing": {
+			expectedErr:       assert.AnError,
+			expectedCollected: []int{4},
+			subject: func(errCh chan error) *operators.FilterOperator[int] {
+				errPredicate := func(x int) (bool, error) {
+					if x == 5 {
+						return false, assert.AnError
+					}
+					return x > 3, nil
+				}
+				op := operators.NewFilterOperator(
+					errPredicate,
+					operators.WithErrorHandlerForFilter[int](
+						func(err error) {
+							errCh <- err
+						},
+					),
+				)
+				go func() {
+					for _, item := range items {
+						op.In() <- item
+					}
+					close(op.In())
+				}()
+				return op
+			},
+		},
+		"multiple-errors-only-first-handled": {
+			expectedErr:       assert.AnError,
+			expectedCollected: []int{1},
+			subject: func(errCh chan error) *operators.FilterOperator[int] {
+				errPredicate := func(x int) (bool, error) {
+					if x == 2 {
+						return false, assert.AnError
+					}
+					if x == 5 {
+						return false, assert.AnError
+					}
+					return true, nil
+				}
+				op := operators.NewFilterOperator(
+					errPredicate,
+					operators.WithErrorHandlerForFilter[int](
+						func(err error) {
+							errCh <- err
+						},
+					),
+				)
+				go func() {
+					for _, item := range items {
+						op.In() <- item
+					}
+					close(op.In())
+				}()
+				return op
+			},
+		},
+	}
+
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Given
+			errCh := make(chan error, 1)
+			operator := c.subject(errCh)
+
+			// When
+			var receivedErr error
+			var collected []int
+
+			// Collect both output and error
+			var wg sync.WaitGroup
+			wg.Add(2)
+
+			go func() {
+				defer wg.Done()
+				collected = helpers.Collect(ctx, operator.Out())
+			}()
+
+			go func() {
+				defer wg.Done()
+				select {
+				case err := <-errCh:
+					receivedErr = err
+				case <-time.After(1 * time.Second):
+					// No error received
+				}
+			}()
+
+			wg.Wait()
+
+			// Then
+			assert.NotNil(t, receivedErr)
+			assert.Equal(t, c.expectedErr.Error(), receivedErr.Error())
+			if c.expectedCollected != nil {
+				assert.Subset(t, c.expectedCollected, collected)
+			}
+		})
+	}
+}
+
 func TestFilterOperator_To(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
 	items := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
-	greaterThan5 := func(x int) bool { return x > 5 }
+	greaterThan5 := func(x int) (bool, error) {
+		return x > 5, nil
+	}
 
 	cases := map[string]struct {
 		expected []int
@@ -175,8 +290,8 @@ func TestFilterOperator_To(t *testing.T) {
 				*operators.FilterOperator[int],
 				*helpers.Collector[int],
 			) {
-				isOdd := func(x int) bool {
-					return x%2 != 0
+				isOdd := func(x int) (bool, error) {
+					return x%2 != 0, nil
 				}
 				op := operators.NewFilterOperator(isOdd)
 				collector := helpers.NewCollector[int](ctx)
@@ -247,11 +362,15 @@ func TestFilterOperator_ChainedFilters(t *testing.T) {
 			subject: func() <-chan int {
 				// Filter 1: > 5
 				filter1 := operators.NewFilterOperator(
-					func(x int) bool { return x > 5 },
+					func(x int) (bool, error) {
+						return x > 5, nil
+					},
 				)
 				// Filter 2: even numbers
 				filter2 := operators.NewFilterOperator(
-					func(x int) bool { return x%2 == 0 },
+					func(x int) (bool, error) {
+						return x%2 == 0, nil
+					},
 				)
 
 				go func() {
@@ -276,15 +395,21 @@ func TestFilterOperator_ChainedFilters(t *testing.T) {
 			subject: func() <-chan int {
 				// Filter 1: > 5
 				filter1 := operators.NewFilterOperator(
-					func(x int) bool { return x > 5 },
+					func(x int) (bool, error) {
+						return x > 5, nil
+					},
 				)
 				// Filter 2: < 10
 				filter2 := operators.NewFilterOperator(
-					func(x int) bool { return x < 10 },
+					func(x int) (bool, error) {
+						return x < 10, nil
+					},
 				)
 				// Filter 3: divisible by 3
 				filter3 := operators.NewFilterOperator(
-					func(x int) bool { return x%3 == 0 },
+					func(x int) (bool, error) {
+						return x%3 == 0, nil
+					},
 				)
 
 				go func() {

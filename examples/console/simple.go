@@ -18,13 +18,13 @@ func main() {
 		'1', '2', '3', '4', '5',
 	})
 
-	findNextCharacter := func(x byte) byte {
-		return x + 1
+	findNextCharacter := func(x byte) (byte, error) {
+		return x + 1, nil
 	}
 
 	nextCharacter := operators.NewMapOperator(
 		findNextCharacter,
-		operators.WithParallelism[byte, byte](4),
+		operators.WithParallelismForMap[byte, byte](4),
 	)
 
 	sink := sinks.NewChannelSink(outputCh)

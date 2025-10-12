@@ -3,7 +3,9 @@ package operators
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 
+	"github.com/arielf-camacho/data-stream/helpers"
 	"github.com/arielf-camacho/data-stream/primitives"
 )
 
@@ -22,17 +24,18 @@ var _ = (primitives.Operator[byte, int])(&MapOperator[int, byte]{})
 type MapOperator[IN any, OUT any] struct {
 	ctx context.Context
 
-	bufferSize  uint
-	parallelism uint
+	bufferSize   uint
+	parallelism  uint
+	errorHandler func(error)
 
-	fn  func(IN) OUT
+	fn  func(IN) (OUT, error)
 	in  chan IN
 	out chan OUT
 }
 
 // NewMapOperator returns a new MapOperator given the transformation function.
 func NewMapOperator[IN any, OUT any](
-	fn func(IN) OUT,
+	fn func(IN) (OUT, error),
 	opts ...MapOperatorOption[IN, OUT],
 ) *MapOperator[IN, OUT] {
 	operator := &MapOperator[IN, OUT]{
@@ -68,8 +71,7 @@ func (m *MapOperator[IN, OUT]) To(in primitives.In[OUT]) {
 			select {
 			case <-m.ctx.Done():
 				return
-			default:
-				in.In() <- v
+			case in.In() <- v:
 			}
 		}
 	}()
@@ -91,23 +93,40 @@ func (m *MapOperator[IN, OUT]) sync() {
 		case <-m.ctx.Done():
 			return
 		default:
-			transformed := m.fn(v)
-			m.out <- transformed
+			transformed, err := m.fn(v)
+			if err != nil {
+				if m.errorHandler != nil {
+					m.errorHandler(err)
+				}
+				helpers.Drain(m.in)
+				return
+			}
+
+			select {
+			case <-m.ctx.Done():
+				return
+			case m.out <- transformed:
+			}
 		}
 	}
 }
 
 func (m *MapOperator[IN, OUT]) async() {
 	defer close(m.out)
+	defer helpers.Drain(m.in)
 
 	var wg sync.WaitGroup
 	semaphore := make(chan struct{}, m.parallelism)
 
+	ctx, cancel := context.WithCancel(m.ctx)
+	defer cancel()
+
+	hasError := atomic.Bool{}
+
 loop:
 	for v := range m.in {
 		select {
-		case <-m.ctx.Done():
-			// Context cancelled, stop spawning workers
+		case <-ctx.Done():
 			break loop
 		case semaphore <- struct{}{}:
 			wg.Add(1)
@@ -117,9 +136,19 @@ loop:
 					wg.Done()
 				}()
 
-				transformed := m.fn(v)
+				transformed, err := m.fn(v)
+				if err != nil {
+					if !hasError.Swap(true) {
+						cancel()
+						if m.errorHandler != nil {
+							m.errorHandler(err)
+						}
+					}
+					return
+				}
+
 				select {
-				case <-m.ctx.Done():
+				case <-ctx.Done():
 					return
 				case m.out <- transformed:
 				}
