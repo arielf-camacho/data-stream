@@ -332,52 +332,30 @@ func TestMapOperator_ParallelExecution(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	items := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
-
-	var concurrentCalls atomic.Int32
-	var maxConcurrent atomic.Int32
-
-	slowFunc := func(x int) (int, error) {
-		current := concurrentCalls.Add(1)
-		defer concurrentCalls.Add(-1)
-
-		// Track max concurrent executions
-		for {
-			max := maxConcurrent.Load()
-			if current <= max {
-				break
-			}
-			if maxConcurrent.CompareAndSwap(max, current) {
-				break
-			}
-		}
-
-		time.Sleep(10 * time.Millisecond)
-		return x * 2, nil
-	}
 
 	cases := map[string]struct {
 		parallelism        uint
+		items              []int
 		minConcurrentCalls int32
 		expectedResults    []int
 	}{
 		"parallelism-1-runs-sequentially": {
 			parallelism:        1,
+			items:              []int{1, 2, 3, 4, 5},
 			minConcurrentCalls: 1,
-			expectedResults: []int{2, 4, 6, 8, 10, 12, 14, 16,
-				18, 20},
+			expectedResults:    []int{2, 4, 6, 8, 10},
 		},
 		"parallelism-3-runs-concurrently": {
 			parallelism:        3,
+			items:              []int{1, 2, 3, 4, 5, 6, 7, 8, 9},
 			minConcurrentCalls: 2,
-			expectedResults: []int{2, 4, 6, 8, 10, 12, 14, 16,
-				18, 20},
+			expectedResults:    []int{2, 4, 6, 8, 10, 12, 14, 16, 18},
 		},
 		"parallelism-5-runs-highly-concurrent": {
 			parallelism:        5,
+			items:              []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
 			minConcurrentCalls: 3,
-			expectedResults: []int{2, 4, 6, 8, 10, 12, 14, 16,
-				18, 20},
+			expectedResults:    []int{2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30},
 		},
 	}
 
@@ -385,15 +363,34 @@ func TestMapOperator_ParallelExecution(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			// Reset counters
-			concurrentCalls.Store(0)
-			maxConcurrent.Store(0)
+			// Each test case has its own counters
+			var concurrentCalls atomic.Int32
+			var maxConcurrent atomic.Int32
+
+			slowFunc := func(x int) (int, error) {
+				current := concurrentCalls.Add(1)
+				defer concurrentCalls.Add(-1)
+
+				// Track max concurrent executions
+				for {
+					max := maxConcurrent.Load()
+					if current <= max {
+						break
+					}
+					if maxConcurrent.CompareAndSwap(max, current) {
+						break
+					}
+				}
+
+				time.Sleep(10 * time.Millisecond)
+				return x * 2, nil
+			}
 
 			// Given
 			op := operators.Map(slowFunc).Parallelism(c.parallelism).Build()
 
 			go func() {
-				for _, item := range items {
+				for _, item := range c.items {
 					op.In() <- item
 				}
 				close(op.In())

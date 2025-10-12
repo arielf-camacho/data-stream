@@ -11,7 +11,7 @@ import (
 	"github.com/arielf-camacho/data-stream/operators"
 	"github.com/arielf-camacho/data-stream/primitives"
 	"github.com/arielf-camacho/data-stream/sinks"
-	"github.com/arielf-camacho/data-stream/sources/slice"
+	"github.com/arielf-camacho/data-stream/sources"
 )
 
 func TestMergeOperator_To(t *testing.T) {
@@ -26,8 +26,8 @@ func TestMergeOperator_To(t *testing.T) {
 		"merges-two-sources": {
 			expected: []int{1, 2, 3, 4, 5, 6},
 			subject: func() (*operators.MergeOperator, *helpers.Collector[any]) {
-				source1 := slice.Slice([]any{1, 2, 3}).Build()
-				source2 := slice.Slice([]any{4, 5, 6}).Build()
+				source1 := sources.Slice([]any{1, 2, 3}).Build()
+				source2 := sources.Slice([]any{4, 5, 6}).Build()
 
 				collector := helpers.NewCollector[any](ctx)
 				merge := operators.Merge(
@@ -40,9 +40,9 @@ func TestMergeOperator_To(t *testing.T) {
 		"merges-three-sources": {
 			expected: []int{1, 2, 3, 4, 5, 6, 7, 8, 9},
 			subject: func() (*operators.MergeOperator, *helpers.Collector[any]) {
-				source1 := slice.Slice([]any{1, 2, 3}).Build()
-				source2 := slice.Slice([]any{4, 5, 6}).Build()
-				source3 := slice.Slice([]any{7, 8, 9}).Build()
+				source1 := sources.Slice([]any{1, 2, 3}).Build()
+				source2 := sources.Slice([]any{4, 5, 6}).Build()
+				source3 := sources.Slice([]any{7, 8, 9}).Build()
 
 				collector := helpers.NewCollector[any](ctx)
 				merge := operators.Merge(
@@ -55,7 +55,7 @@ func TestMergeOperator_To(t *testing.T) {
 		"single-source": {
 			expected: []int{1, 2, 3, 4, 5},
 			subject: func() (*operators.MergeOperator, *helpers.Collector[any]) {
-				source := slice.Slice([]any{1, 2, 3, 4, 5}).Build()
+				source := sources.Slice([]any{1, 2, 3, 4, 5}).Build()
 
 				collector := helpers.NewCollector[any](ctx)
 				merge := operators.Merge([]primitives.Out[any]{source}).Build()
@@ -66,8 +66,8 @@ func TestMergeOperator_To(t *testing.T) {
 		"empty-sources": {
 			expected: nil,
 			subject: func() (*operators.MergeOperator, *helpers.Collector[any]) {
-				source1 := slice.Slice([]any{}).Build()
-				source2 := slice.Slice([]any{}).Build()
+				source1 := sources.Slice([]any{}).Build()
+				source2 := sources.Slice([]any{}).Build()
 
 				collector := helpers.NewCollector[any](ctx)
 				merge := operators.Merge([]primitives.Out[any]{source1, source2}).Build()
@@ -78,9 +78,9 @@ func TestMergeOperator_To(t *testing.T) {
 		"mixed-empty-and-populated-sources": {
 			expected: []int{1, 2, 3},
 			subject: func() (*operators.MergeOperator, *helpers.Collector[any]) {
-				source1 := slice.Slice([]any{}).Build()
-				source2 := slice.Slice([]any{1, 2, 3}).Build()
-				source3 := slice.Slice([]any{}).Build()
+				source1 := sources.Slice([]any{}).Build()
+				source2 := sources.Slice([]any{1, 2, 3}).Build()
+				source3 := sources.Slice([]any{}).Build()
 
 				collector := helpers.NewCollector[any](ctx)
 				merge := operators.
@@ -93,8 +93,8 @@ func TestMergeOperator_To(t *testing.T) {
 		"with-buffer-size": {
 			expected: []int{1, 2, 3, 4},
 			subject: func() (*operators.MergeOperator, *helpers.Collector[any]) {
-				source1 := slice.Slice([]any{1, 2}).Build()
-				source2 := slice.Slice([]any{3, 4}).Build()
+				source1 := sources.Slice([]any{1, 2}).Build()
+				source2 := sources.Slice([]any{3, 4}).Build()
 
 				collector := helpers.NewCollector[any](ctx)
 				merge := operators.
@@ -214,8 +214,8 @@ func TestMergeOperator_ContextCancellation(t *testing.T) {
 				ctx, cancel := context.WithCancel(context.Background())
 				cancel()
 
-				source1 := slice.Slice([]any{1, 2, 3}).Context(ctx).Build()
-				source2 := slice.Slice([]any{4, 5, 6}).Context(ctx).Build()
+				source1 := sources.Slice([]any{1, 2, 3}).Context(ctx).Build()
+				source2 := sources.Slice([]any{4, 5, 6}).Context(ctx).Build()
 
 				outputCh := make(chan any)
 				sink := sinks.Channel(outputCh).Context(ctx).Build()
