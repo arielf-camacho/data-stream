@@ -10,13 +10,13 @@ import (
 func main() {
 	outputCh := make(chan any)
 
+	source := sources.
+		Single(func() (any, error) { return "Hello, world!", nil }).
+		Build()
+
 	sink := sinks.Channel(outputCh).Build()
 
-	source := sources.Single(func() (any, error) {
-		return "Hello, world!", nil
-	}).Build()
-
-	source.To(sink)
+	source.ToSink(sink)
 
 	for v := range outputCh {
 		fmt.Println("value:", v)

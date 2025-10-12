@@ -9,7 +9,7 @@ import (
 	"github.com/arielf-camacho/data-stream/primitives"
 )
 
-var _ = (primitives.Operator[byte, int])(&MapOperator[int, byte]{})
+var _ = (primitives.Flow[byte, int])(&MapOperator[byte, int]{})
 
 // MapOperator is an operator that maps the values from the input channel to the
 // output channel using the given transformation function.
@@ -24,6 +24,7 @@ var _ = (primitives.Operator[byte, int])(&MapOperator[int, byte]{})
 type MapOperator[IN any, OUT any] struct {
 	ctx context.Context
 
+	activated    atomic.Bool
 	bufferSize   uint
 	parallelism  uint
 	errorHandler func(error)
@@ -109,7 +110,11 @@ func (m *MapOperator[IN, OUT]) Out() <-chan OUT {
 	return m.out
 }
 
-func (m *MapOperator[IN, OUT]) To(in primitives.In[OUT]) {
+func (m *MapOperator[IN, OUT]) ToFlow(
+	in primitives.Flow[OUT, OUT],
+) primitives.Flow[OUT, OUT] {
+	m.assertNotActive()
+
 	go func() {
 		defer close(in.In())
 		for v := range m.out {
@@ -120,6 +125,30 @@ func (m *MapOperator[IN, OUT]) To(in primitives.In[OUT]) {
 			}
 		}
 	}()
+
+	return in
+}
+
+func (m *MapOperator[IN, OUT]) ToSink(in primitives.Sink[OUT]) {
+	m.assertNotActive()
+
+	go func() {
+		defer close(in.In())
+		for v := range m.out {
+			select {
+			case <-m.ctx.Done():
+				return
+			case in.In() <- v:
+			}
+		}
+	}()
+}
+
+func (m *MapOperator[IN, OUT]) assertNotActive() {
+	if !m.activated.CompareAndSwap(false, true) {
+		// TODO: Use a logger to print this error, don't panic
+		panic("MapOperator is already streaming, cannot be used as a flow again")
+	}
 }
 
 func (m *MapOperator[IN, OUT]) start() {

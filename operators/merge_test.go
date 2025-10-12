@@ -21,86 +21,77 @@ func TestMergeOperator_To(t *testing.T) {
 
 	cases := map[string]struct {
 		expected []int
-		subject  func() (*operators.MergeOperator, *helpers.Collector[any])
+		subject  func() (*operators.MergeOperator[int], *helpers.Collector[int])
 	}{
 		"merges-two-sources": {
 			expected: []int{1, 2, 3, 4, 5, 6},
-			subject: func() (*operators.MergeOperator, *helpers.Collector[any]) {
-				source1 := sources.Slice([]any{1, 2, 3}).Build()
-				source2 := sources.Slice([]any{4, 5, 6}).Build()
+			subject: func() (*operators.MergeOperator[int], *helpers.Collector[int]) {
+				source1 := sources.Slice([]int{1, 2, 3}).Build()
+				source2 := sources.Slice([]int{4, 5, 6}).Build()
 
-				collector := helpers.NewCollector[any](ctx)
-				merge := operators.Merge(
-					[]primitives.Out[any]{source1, source2},
-				).Build()
+				collector := helpers.NewCollector[int](ctx)
+				merge := operators.Merge(source1, source2).Build()
 
 				return merge, collector
 			},
 		},
 		"merges-three-sources": {
 			expected: []int{1, 2, 3, 4, 5, 6, 7, 8, 9},
-			subject: func() (*operators.MergeOperator, *helpers.Collector[any]) {
-				source1 := sources.Slice([]any{1, 2, 3}).Build()
-				source2 := sources.Slice([]any{4, 5, 6}).Build()
-				source3 := sources.Slice([]any{7, 8, 9}).Build()
+			subject: func() (*operators.MergeOperator[int], *helpers.Collector[int]) {
+				source1 := sources.Slice([]int{1, 2, 3}).Build()
+				source2 := sources.Slice([]int{4, 5, 6}).Build()
+				source3 := sources.Slice([]int{7, 8, 9}).Build()
 
-				collector := helpers.NewCollector[any](ctx)
-				merge := operators.Merge(
-					[]primitives.Out[any]{source1, source2, source3},
-				).Build()
+				collector := helpers.NewCollector[int](ctx)
+				merge := operators.Merge(source1, source2, source3).Build()
 
 				return merge, collector
 			},
 		},
 		"single-source": {
 			expected: []int{1, 2, 3, 4, 5},
-			subject: func() (*operators.MergeOperator, *helpers.Collector[any]) {
-				source := sources.Slice([]any{1, 2, 3, 4, 5}).Build()
+			subject: func() (*operators.MergeOperator[int], *helpers.Collector[int]) {
+				source := sources.Slice([]int{1, 2, 3, 4, 5}).Build()
 
-				collector := helpers.NewCollector[any](ctx)
-				merge := operators.Merge([]primitives.Out[any]{source}).Build()
+				collector := helpers.NewCollector[int](ctx)
+				merge := operators.Merge(source).Build()
 
 				return merge, collector
 			},
 		},
 		"empty-sources": {
 			expected: nil,
-			subject: func() (*operators.MergeOperator, *helpers.Collector[any]) {
-				source1 := sources.Slice([]any{}).Build()
-				source2 := sources.Slice([]any{}).Build()
+			subject: func() (*operators.MergeOperator[int], *helpers.Collector[int]) {
+				source1 := sources.Slice([]int{}).Build()
+				source2 := sources.Slice([]int{}).Build()
 
-				collector := helpers.NewCollector[any](ctx)
-				merge := operators.Merge([]primitives.Out[any]{source1, source2}).Build()
+				collector := helpers.NewCollector[int](ctx)
+				merge := operators.Merge(source1, source2).Build()
 
 				return merge, collector
 			},
 		},
 		"mixed-empty-and-populated-sources": {
 			expected: []int{1, 2, 3},
-			subject: func() (*operators.MergeOperator, *helpers.Collector[any]) {
-				source1 := sources.Slice([]any{}).Build()
-				source2 := sources.Slice([]any{1, 2, 3}).Build()
-				source3 := sources.Slice([]any{}).Build()
+			subject: func() (*operators.MergeOperator[int], *helpers.Collector[int]) {
+				source1 := sources.Slice([]int{}).Build()
+				source2 := sources.Slice([]int{1, 2, 3}).Build()
+				source3 := sources.Slice([]int{}).Build()
 
-				collector := helpers.NewCollector[any](ctx)
-				merge := operators.
-					Merge([]primitives.Out[any]{source1, source2, source3}).
-					Build()
+				collector := helpers.NewCollector[int](ctx)
+				merge := operators.Merge(source1, source2, source3).Build()
 
 				return merge, collector
 			},
 		},
 		"with-buffer-size": {
 			expected: []int{1, 2, 3, 4},
-			subject: func() (*operators.MergeOperator, *helpers.Collector[any]) {
-				source1 := sources.Slice([]any{1, 2}).Build()
-				source2 := sources.Slice([]any{3, 4}).Build()
+			subject: func() (*operators.MergeOperator[int], *helpers.Collector[int]) {
+				source1 := sources.Slice([]int{1, 2}).Build()
+				source2 := sources.Slice([]int{3, 4}).Build()
 
-				collector := helpers.NewCollector[any](ctx)
-				merge := operators.
-					Merge([]primitives.Out[any]{source1, source2}).
-					BufferSize(5).
-					Build()
+				collector := helpers.NewCollector[int](ctx)
+				merge := operators.Merge(source1, source2).BufferSize(5).Build()
 
 				return merge, collector
 			},
@@ -132,8 +123,8 @@ func TestMergeOperator_ConcurrentMerging(t *testing.T) {
 	createSlowSource := func(
 		values []int,
 		delay time.Duration,
-	) primitives.Out[any] {
-		ch := make(chan any)
+	) primitives.Outlet[int] {
+		ch := make(chan int)
 		go func() {
 			defer close(ch)
 			for _, v := range values {
@@ -145,11 +136,11 @@ func TestMergeOperator_ConcurrentMerging(t *testing.T) {
 	}
 
 	cases := map[string]struct {
-		subject    func() (*operators.MergeOperator, *helpers.Collector[any])
-		assertFunc func(*testing.T, []any)
+		subject    func() (*operators.MergeOperator[int], *helpers.Collector[int])
+		assertFunc func(*testing.T, []int)
 	}{
 		"merges-sources-concurrently-not-sequentially": {
-			subject: func() (*operators.MergeOperator, *helpers.Collector[any]) {
+			subject: func() (*operators.MergeOperator[int], *helpers.Collector[int]) {
 				// Source1: slow, emits 1, 2
 				// Source2: fast, emits 3, 4
 				// If sequential: [1, 2, 3, 4]
@@ -157,14 +148,12 @@ func TestMergeOperator_ConcurrentMerging(t *testing.T) {
 				source1 := createSlowSource([]int{1, 2}, 50*time.Millisecond)
 				source2 := createSlowSource([]int{3, 4}, 10*time.Millisecond)
 
-				collector := helpers.NewCollector[any](ctx)
-				merge := operators.
-					Merge([]primitives.Out[any]{source1, source2}).
-					Build()
+				collector := helpers.NewCollector[int](ctx)
+				merge := operators.Merge(source1, source2).Build()
 
 				return merge, collector
 			},
-			assertFunc: func(t *testing.T, result []any) {
+			assertFunc: func(t *testing.T, result []int) {
 				// Should have all 4 values
 				assert.Len(t, result, 4)
 				assert.ElementsMatch(t, []int{1, 2, 3, 4}, result)
@@ -207,25 +196,22 @@ func TestMergeOperator_ContextCancellation(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]struct {
-		subject func() (context.Context, []any)
+		subject func() (context.Context, []int)
 	}{
 		"cancelled-context-stops-merging": {
-			subject: func() (context.Context, []any) {
+			subject: func() (context.Context, []int) {
 				ctx, cancel := context.WithCancel(context.Background())
 				cancel()
 
-				source1 := sources.Slice([]any{1, 2, 3}).Context(ctx).Build()
-				source2 := sources.Slice([]any{4, 5, 6}).Context(ctx).Build()
+				source1 := sources.Slice([]int{1, 2, 3}).Context(ctx).Build()
+				source2 := sources.Slice([]int{4, 5, 6}).Context(ctx).Build()
 
-				outputCh := make(chan any)
+				outputCh := make(chan int)
 				sink := sinks.Channel(outputCh).Context(ctx).Build()
 
-				merge := operators.
-					Merge([]primitives.Out[any]{source1, source2}).
-					Context(ctx).
-					Build()
+				merge := operators.Merge(source1, source2).Context(ctx).Build()
 
-				merge.To(sink)
+				merge.ToSink(sink)
 
 				result := helpers.Collect(ctx, outputCh)
 
@@ -250,9 +236,9 @@ func TestMergeOperator_ContextCancellation(t *testing.T) {
 
 // testSource is a simple Out implementation for testing
 type testSource struct {
-	ch chan any
+	ch chan int
 }
 
-func (t *testSource) Out() <-chan any {
+func (t *testSource) Out() <-chan int {
 	return t.ch
 }

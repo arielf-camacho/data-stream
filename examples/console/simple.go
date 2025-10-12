@@ -25,10 +25,9 @@ func main() {
 
 	sink := sinks.Channel(outputCh).Build()
 
-	source.To(nextCharacter)
-	nextCharacter.To(sink)
+	source.ToFlow(nextCharacter).ToSink(sink)
 
 	for v := range outputCh {
-		fmt.Println("value:", string(v))
+		fmt.Println("value:", v)
 	}
 }

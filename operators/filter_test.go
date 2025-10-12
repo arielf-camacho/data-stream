@@ -22,11 +22,11 @@ func TestFilterOperator_Out(t *testing.T) {
 
 	cases := map[string]struct {
 		expected []int
-		subject  func() (primitives.Operator[int, int], context.Context)
+		subject  func() (primitives.Flow[int, int], context.Context)
 	}{
 		"filters-values-matching-predicate": {
 			expected: []int{6, 7, 8, 9, 10},
-			subject: func() (primitives.Operator[int, int], context.Context) {
+			subject: func() (primitives.Flow[int, int], context.Context) {
 				op := operators.Filter(greaterThan5).Build()
 				go func() {
 					for _, item := range items {
@@ -39,7 +39,7 @@ func TestFilterOperator_Out(t *testing.T) {
 		},
 		"all-values-match-predicate": {
 			expected: []int{1, 2, 3, 4, 5},
-			subject: func() (primitives.Operator[int, int], context.Context) {
+			subject: func() (primitives.Flow[int, int], context.Context) {
 				alwaysTrue := func(x int) (bool, error) { return true, nil }
 				op := operators.Filter(alwaysTrue).Build()
 				go func() {
@@ -53,7 +53,7 @@ func TestFilterOperator_Out(t *testing.T) {
 		},
 		"no-values-match-predicate": {
 			expected: nil,
-			subject: func() (primitives.Operator[int, int], context.Context) {
+			subject: func() (primitives.Flow[int, int], context.Context) {
 				alwaysFalse := func(x int) (bool, error) { return false, nil }
 				op := operators.Filter(alwaysFalse).Build()
 				go func() {
@@ -67,7 +67,7 @@ func TestFilterOperator_Out(t *testing.T) {
 		},
 		"empty-input": {
 			expected: nil,
-			subject: func() (primitives.Operator[int, int], context.Context) {
+			subject: func() (primitives.Flow[int, int], context.Context) {
 				op := operators.Filter(greaterThan5).Build()
 				close(op.In())
 				return op, ctx
@@ -75,7 +75,7 @@ func TestFilterOperator_Out(t *testing.T) {
 		},
 		"even-numbers-only": {
 			expected: []int{2, 4, 6, 8, 10},
-			subject: func() (primitives.Operator[int, int], context.Context) {
+			subject: func() (primitives.Flow[int, int], context.Context) {
 				isEven := func(x int) (bool, error) { return x%2 == 0, nil }
 				op := operators.Filter(isEven).Build()
 				go func() {
@@ -89,7 +89,7 @@ func TestFilterOperator_Out(t *testing.T) {
 		},
 		"cancelled-context": {
 			expected: nil,
-			subject: func() (primitives.Operator[int, int], context.Context) {
+			subject: func() (primitives.Flow[int, int], context.Context) {
 				ctx, cancel := context.WithCancel(ctx)
 				cancel()
 				op := operators.Filter(greaterThan5).Context(ctx).Build()
@@ -104,7 +104,7 @@ func TestFilterOperator_Out(t *testing.T) {
 		},
 		"with-buffer-size": {
 			expected: []int{6, 7, 8, 9, 10},
-			subject: func() (primitives.Operator[int, int], context.Context) {
+			subject: func() (primitives.Flow[int, int], context.Context) {
 				op := operators.Filter(greaterThan5).BufferSize(5).Build()
 				go func() {
 					for _, item := range items {
@@ -319,7 +319,7 @@ func TestFilterOperator_To(t *testing.T) {
 			operator, collector := c.subject()
 
 			// When
-			operator.To(collector)
+			operator.ToSink(collector)
 
 			// Then
 			assert.ElementsMatch(t, c.expected, collector.Items())

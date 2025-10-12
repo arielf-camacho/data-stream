@@ -23,11 +23,11 @@ func TestMapOperator_Out(t *testing.T) {
 
 	cases := map[string]struct {
 		expected []int
-		subject  func() (primitives.Operator[int, int], context.Context)
+		subject  func() (primitives.Flow[int, int], context.Context)
 	}{
 		"sync-mode-transforms-all-values": {
 			expected: []int{2, 4, 6, 8, 10},
-			subject: func() (primitives.Operator[int, int], context.Context) {
+			subject: func() (primitives.Flow[int, int], context.Context) {
 				op := operators.Map(double).Build()
 				go func() {
 					for _, item := range items {
@@ -40,7 +40,7 @@ func TestMapOperator_Out(t *testing.T) {
 		},
 		"async-mode-transforms-all-values": {
 			expected: []int{2, 4, 6, 8, 10},
-			subject: func() (primitives.Operator[int, int], context.Context) {
+			subject: func() (primitives.Flow[int, int], context.Context) {
 				op := operators.Map(double).Parallelism(3).Build()
 				go func() {
 					for _, item := range items {
@@ -53,7 +53,7 @@ func TestMapOperator_Out(t *testing.T) {
 		},
 		"empty-input": {
 			expected: nil,
-			subject: func() (primitives.Operator[int, int], context.Context) {
+			subject: func() (primitives.Flow[int, int], context.Context) {
 				op := operators.Map(double).Build()
 				close(op.In())
 				return op, ctx
@@ -61,7 +61,7 @@ func TestMapOperator_Out(t *testing.T) {
 		},
 		"cancelled-context-sync-mode": {
 			expected: nil,
-			subject: func() (primitives.Operator[int, int], context.Context) {
+			subject: func() (primitives.Flow[int, int], context.Context) {
 				ctx, cancel := context.WithCancel(ctx)
 				cancel()
 				op := operators.Map(double).Context(ctx).Build()
@@ -76,7 +76,7 @@ func TestMapOperator_Out(t *testing.T) {
 		},
 		"cancelled-context-async-mode": {
 			expected: nil,
-			subject: func() (primitives.Operator[int, int], context.Context) {
+			subject: func() (primitives.Flow[int, int], context.Context) {
 				ctx, cancel := context.WithCancel(ctx)
 				cancel()
 				op := operators.Map(double).Context(ctx).Parallelism(3).Build()
@@ -320,7 +320,7 @@ func TestMapOperator_To(t *testing.T) {
 			operator, collector := c.subject()
 
 			// When
-			operator.To(collector)
+			operator.ToSink(collector)
 
 			// Then
 			assert.ElementsMatch(t, c.expected, collector.Items())

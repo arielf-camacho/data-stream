@@ -2,12 +2,13 @@ package operators
 
 import (
 	"context"
+	"sync/atomic"
 
 	"github.com/arielf-camacho/data-stream/helpers"
 	"github.com/arielf-camacho/data-stream/primitives"
 )
 
-var _ = (primitives.Operator[int, int])(&FilterOperator[int]{})
+var _ = (primitives.Flow[int, int])(&FilterOperator[int]{})
 
 // FilterOperator is an operator that filters values from the input channel to the
 // output channel using the given predicate function. Only values for which the
@@ -23,6 +24,7 @@ var _ = (primitives.Operator[int, int])(&FilterOperator[int]{})
 type FilterOperator[T any] struct {
 	ctx context.Context
 
+	activated    atomic.Bool
 	errorHandler func(error)
 	bufferSize   uint
 
@@ -90,7 +92,11 @@ func (f *FilterOperator[T]) Out() <-chan T {
 	return f.out
 }
 
-func (f *FilterOperator[T]) To(in primitives.In[T]) {
+func (f *FilterOperator[T]) ToFlow(
+	in primitives.Flow[T, T],
+) primitives.Flow[T, T] {
+	f.assertNotActive()
+
 	go func() {
 		defer close(in.In())
 		for v := range f.out {
@@ -101,6 +107,30 @@ func (f *FilterOperator[T]) To(in primitives.In[T]) {
 			}
 		}
 	}()
+
+	return in
+}
+
+func (f *FilterOperator[T]) ToSink(in primitives.Sink[T]) {
+	f.assertNotActive()
+
+	go func() {
+		defer close(in.In())
+		for v := range f.out {
+			select {
+			case <-f.ctx.Done():
+				return
+			case in.In() <- v:
+			}
+		}
+	}()
+}
+
+func (f *FilterOperator[T]) assertNotActive() {
+	if !f.activated.CompareAndSwap(false, true) {
+		// TODO: Use a logger to print this error, don't panic
+		panic("FilterOperator is already streaming, cannot be used as a flow again")
+	}
 }
 
 func (f *FilterOperator[T]) start() {
