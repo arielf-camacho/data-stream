@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync/atomic"
 
+	"github.com/arielf-camacho/data-stream/helpers"
 	"github.com/arielf-camacho/data-stream/primitives"
 )
 
@@ -12,20 +13,22 @@ var _ = primitives.Flow[int, any](&PassThroughFlow[int, any]{})
 // PassThroughFlow is an operator that passes through the values from the
 // input channel to the output channel.
 type PassThroughFlow[IN any, OUT any] struct {
-	ctx        context.Context
-	activated  atomic.Bool
-	bufferSize uint
+	ctx          context.Context
+	activated    atomic.Bool
+	bufferSize   uint
+	convert      func(IN) (OUT, error)
+	errorHandler func(error)
 
-	convert func(IN) OUT
-	in      chan IN
-	out     chan OUT
+	in  chan IN
+	out chan OUT
 }
 
 // PassThroughBuilder is a fluent builder for PassThroughFlow.
 type PassThroughBuilder[IN any, OUT any] struct {
-	ctx        context.Context
-	bufferSize uint
-	convert    func(IN) OUT
+	ctx          context.Context
+	bufferSize   uint
+	errorHandler func(error)
+	convert      func(IN) (OUT, error)
 }
 
 // PassThrough creates a new PassThroughBuilder for building a
@@ -53,19 +56,29 @@ func (b *PassThroughBuilder[IN, OUT]) BufferSize(
 	return b
 }
 
+// Convert sets the convert function for the PassThroughFlow.
 func (b *PassThroughBuilder[IN, OUT]) Convert(
-	convert func(IN) OUT,
+	convert func(IN) (OUT, error),
 ) *PassThroughBuilder[IN, OUT] {
 	b.convert = convert
+	return b
+}
+
+// ErrorHandler sets the error handler for the PassThroughFlow.
+func (b *PassThroughBuilder[IN, OUT]) ErrorHandler(
+	handler func(error),
+) *PassThroughBuilder[IN, OUT] {
+	b.errorHandler = handler
 	return b
 }
 
 // Build creates and starts the PassThroughFlow.
 func (b *PassThroughBuilder[IN, OUT]) Build() *PassThroughFlow[IN, OUT] {
 	operator := &PassThroughFlow[IN, OUT]{
-		ctx:        b.ctx,
-		bufferSize: b.bufferSize,
-		convert:    b.convert,
+		ctx:          b.ctx,
+		bufferSize:   b.bufferSize,
+		convert:      b.convert,
+		errorHandler: b.errorHandler,
 	}
 
 	operator.in = make(chan IN, operator.bufferSize)
@@ -76,10 +89,12 @@ func (b *PassThroughBuilder[IN, OUT]) Build() *PassThroughFlow[IN, OUT] {
 	return operator
 }
 
+// Out returns the channel from which the values can be read.
 func (p *PassThroughFlow[IN, OUT]) Out() <-chan OUT {
 	return p.out
 }
 
+// In returns the channel to which the values can be written.
 func (o *PassThroughFlow[IN, OUT]) In() chan<- IN {
 	return o.in
 }
@@ -90,6 +105,8 @@ func (p *PassThroughFlow[IN, OUT]) ToFlow(
 	in primitives.Flow[OUT, OUT],
 ) primitives.Flow[OUT, OUT] {
 	p.assertNotActive()
+
+	defer helpers.Drain(p.out)
 
 	go func() {
 		defer close(in.In())
@@ -112,6 +129,8 @@ func (p *PassThroughFlow[IN, OUT]) ToSink(
 ) {
 	p.assertNotActive()
 
+	defer helpers.Drain(p.out)
+
 	go func() {
 		defer close(in.In())
 		for v := range p.out {
@@ -128,7 +147,13 @@ func (p *PassThroughFlow[IN, OUT]) start() {
 	defer close(p.out)
 
 	for v := range p.in {
-		w := p.convert(v)
+		w, err := p.convert(v)
+		if err != nil {
+			if p.errorHandler != nil {
+				p.errorHandler(err)
+			}
+			return
+		}
 		select {
 		case <-p.ctx.Done():
 			return
@@ -144,6 +169,6 @@ func (p *PassThroughFlow[IN, OUT]) assertNotActive() {
 	}
 }
 
-func defaultConvert[IN any, OUT any](v IN) OUT {
-	return any(v).(OUT)
+func defaultConvert[IN any, OUT any](v IN) (OUT, error) {
+	return any(v).(OUT), nil
 }
