@@ -54,6 +54,7 @@ func (b *WriterSinkBuilder) BufferSize(size uint) *WriterSinkBuilder {
 	return b
 }
 
+// ErrorHandler sets the error handler for the WriterSink.
 func (b *WriterSinkBuilder) ErrorHandler(
 	handler func(error),
 ) *WriterSinkBuilder {
