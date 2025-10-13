@@ -8,7 +8,10 @@ import (
 )
 
 // SpreadFlow is an operator that spreads the values from the input channel
-// to the output channels.
+// to the output channels. Spread, on every value, will send it to all the
+// output channels sequentially. Be careful, if there is a slow consumer, it
+// will block the spread operation. A workaround would be to connect to the
+// Outlets, flows that have a buffer of reasonable size.
 //
 // Graphically, the SpreadFlow looks like this:
 //
