@@ -5,7 +5,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/arielf-camacho/data-stream/helpers"
 	"github.com/arielf-camacho/data-stream/primitives"
 )
 
@@ -172,7 +171,6 @@ func (m *MapFlow[IN, OUT]) sync() {
 				if m.errorHandler != nil {
 					m.errorHandler(err)
 				}
-				helpers.Drain(m.in)
 				return
 			}
 
@@ -187,7 +185,6 @@ func (m *MapFlow[IN, OUT]) sync() {
 
 func (m *MapFlow[IN, OUT]) async() {
 	defer close(m.out)
-	defer helpers.Drain(m.in)
 
 	var wg sync.WaitGroup
 	semaphore := make(chan struct{}, m.parallelism)

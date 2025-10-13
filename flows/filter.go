@@ -4,7 +4,6 @@ import (
 	"context"
 	"sync/atomic"
 
-	"github.com/arielf-camacho/data-stream/helpers"
 	"github.com/arielf-camacho/data-stream/primitives"
 )
 
@@ -135,7 +134,6 @@ func (f *FilterFlow[T]) assertNotActive() {
 
 func (f *FilterFlow[T]) start() {
 	defer close(f.out)
-	defer helpers.Drain(f.in)
 
 	for v := range f.in {
 		select {

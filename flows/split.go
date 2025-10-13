@@ -3,7 +3,6 @@ package flows
 import (
 	"context"
 
-	"github.com/arielf-camacho/data-stream/helpers"
 	"github.com/arielf-camacho/data-stream/primitives"
 )
 
@@ -119,10 +118,8 @@ func (s *SplitFlow[T]) NonMatching() primitives.Flow[T, T] {
 func (s *SplitFlow[T]) start() {
 	defer close(s.matching.In())
 	defer close(s.nonMatching.In())
-	defer helpers.Drain(s.in.Out())
 
 	for v := range s.in.Out() {
-		// Check context before processing
 		select {
 		case <-s.ctx.Done():
 			return

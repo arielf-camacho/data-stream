@@ -4,7 +4,6 @@ import (
 	"context"
 	"sync/atomic"
 
-	"github.com/arielf-camacho/data-stream/helpers"
 	"github.com/arielf-camacho/data-stream/primitives"
 )
 
@@ -106,8 +105,6 @@ func (p *PassThroughFlow[IN, OUT]) ToFlow(
 ) primitives.Flow[OUT, OUT] {
 	p.assertNotActive()
 
-	defer helpers.Drain(p.out)
-
 	go func() {
 		defer close(in.In())
 		for v := range p.out {
@@ -128,8 +125,6 @@ func (p *PassThroughFlow[IN, OUT]) ToSink(
 	in primitives.Sink[OUT],
 ) {
 	p.assertNotActive()
-
-	defer helpers.Drain(p.out)
 
 	go func() {
 		defer close(in.In())

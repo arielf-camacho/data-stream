@@ -4,7 +4,6 @@ import (
 	"context"
 	"sync/atomic"
 
-	"github.com/arielf-camacho/data-stream/helpers"
 	"github.com/arielf-camacho/data-stream/primitives"
 )
 
@@ -92,7 +91,6 @@ func (s *SingleSource[T]) ToFlow(
 		for v := range s.out {
 			select {
 			case <-s.ctx.Done():
-				helpers.Drain(s.out)
 				return
 			case in.In() <- v:
 			}
@@ -112,7 +110,6 @@ func (s *SingleSource[T]) ToSink(in primitives.Sink[T]) primitives.Sink[T] {
 		for v := range s.out {
 			select {
 			case <-s.ctx.Done():
-				helpers.Drain(s.out)
 				return
 			case in.In() <- v:
 			}
