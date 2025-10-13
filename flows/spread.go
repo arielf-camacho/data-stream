@@ -24,8 +24,6 @@ import (
 type SpreadFlow[T any] struct {
 	ctx context.Context
 
-	bufferSize uint
-
 	in  primitives.Outlet[T]
 	out []primitives.Flow[T, T]
 }
@@ -45,17 +43,10 @@ func Spread[T any](
 
 // SpreadBuilder is a fluent builder for SpreadFlow.
 type SpreadBuilder[T any] struct {
-	bufferSize uint
-	ctx        context.Context
+	ctx context.Context
 
 	in  primitives.Outlet[T]
 	out []primitives.Flow[T, T]
-}
-
-// BufferSize sets the buffer size for the SpreadFlow channels.
-func (b *SpreadBuilder[T]) BufferSize(size uint) *SpreadBuilder[T] {
-	b.bufferSize = size
-	return b
 }
 
 // Context sets the context for the SpreadFlow.
@@ -71,8 +62,7 @@ func (b *SpreadBuilder[T]) Build() *SpreadFlow[T] {
 	}
 
 	operator := &SpreadFlow[T]{
-		ctx:        b.ctx,
-		bufferSize: b.bufferSize,
+		ctx: b.ctx,
 
 		in:  b.in,
 		out: b.out,
@@ -83,6 +73,7 @@ func (b *SpreadBuilder[T]) Build() *SpreadFlow[T] {
 	return operator
 }
 
+// Outlets returns the outlets of the SpreadFlow.
 func (s *SpreadFlow[T]) Outlets() []primitives.Outlet[T] {
 	return lo.Map(
 		s.out,
