@@ -1,7 +1,10 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"os"
+	"time"
 
 	"github.com/arielf-camacho/data-stream/flows"
 	"github.com/arielf-camacho/data-stream/sinks"
@@ -12,22 +15,25 @@ import (
 // stream bytes to the console.
 
 func main() {
-	outputCh := make(chan byte)
-
 	source := sources.
 		Slice([]byte{'1', '2', '3', '4', '5'}).
 		Build()
 
 	nextCharacter := flows.
 		Map(func(x byte) (byte, error) { return x + 1, nil }).
-		Parallelism(4).
+		Parallelism(5).
 		Build()
 
-	sink := sinks.Channel(outputCh).Build()
+	toBytes := flows.
+		Map(func(x byte) ([]byte, error) { return []byte{x}, nil }).
+		Build()
 
-	source.ToFlow(nextCharacter).ToSink(sink)
+	sink := sinks.Writer(os.Stdout).Build()
 
-	for v := range outputCh {
-		fmt.Println("value:", v)
-	}
+	source.ToFlow(nextCharacter)
+	flows.ToFlow(context.Background(), nextCharacter, toBytes)
+	toBytes.ToSink(sink)
+
+	time.Sleep(300 * time.Millisecond)
+	fmt.Println()
 }
