@@ -8,6 +8,8 @@ import (
 	"github.com/arielf-camacho/data-stream/primitives"
 )
 
+var _ = (primitives.Outlet[any])(&MergeFlow[any]{})
+
 // MergeFlow is an operator that merges the values from the input channels
 // to the output channel.
 //
@@ -71,6 +73,10 @@ func (b *MergeBuilder[T]) Build() *MergeFlow[T] {
 	go merge.start()
 
 	return merge
+}
+
+func (m *MergeFlow[T]) Out() <-chan T {
+	return m.out
 }
 
 func (m *MergeFlow[T]) ToFlow(in primitives.Flow[T, T]) primitives.Flow[T, T] {
