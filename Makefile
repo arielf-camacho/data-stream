@@ -24,7 +24,7 @@ generate/mocks:
 	@echo "----------------------------------------------------------------"
 	mockery
 
-all: tidy vet lint build coverage
+all: tidy vet lint coverage
 
 ################################################################################
 ## Common commands
