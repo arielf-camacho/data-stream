@@ -18,17 +18,20 @@ var _ = primitives.Sink[[]byte](&WriterSink{})
 // -- WriterSink --
 // -> 1 -- 2 -- 3 -- 4 -- 5 -- |
 type WriterSink struct {
-	ctx        context.Context
-	bufferSize uint
-	in         chan []byte
-	writer     io.Writer
+	ctx          context.Context
+	bufferSize   uint
+	errorHandler func(error)
+	writer       io.Writer
+
+	in chan []byte
 }
 
 // WriterSinkBuilder is a fluent builder for WriterSink.
 type WriterSinkBuilder struct {
-	writer     io.Writer
-	ctx        context.Context
-	bufferSize uint
+	writer       io.Writer
+	ctx          context.Context
+	bufferSize   uint
+	errorHandler func(error)
 }
 
 // Writer creates a new WriterSinkBuilder for building a WriterSink.
@@ -51,12 +54,20 @@ func (b *WriterSinkBuilder) BufferSize(size uint) *WriterSinkBuilder {
 	return b
 }
 
+func (b *WriterSinkBuilder) ErrorHandler(
+	handler func(error),
+) *WriterSinkBuilder {
+	b.errorHandler = handler
+	return b
+}
+
 // Build creates and starts the WriterSink.
 func (b *WriterSinkBuilder) Build() *WriterSink {
 	writer := &WriterSink{
-		writer:     b.writer,
-		ctx:        b.ctx,
-		bufferSize: b.bufferSize,
+		writer:       b.writer,
+		ctx:          b.ctx,
+		bufferSize:   b.bufferSize,
+		errorHandler: b.errorHandler,
 	}
 
 	writer.in = make(chan []byte, writer.bufferSize)
@@ -76,7 +87,10 @@ func (w *WriterSink) start() {
 		case <-w.ctx.Done():
 			return
 		default:
-			w.writer.Write(v)
+			_, err := w.writer.Write(v)
+			if err != nil && w.errorHandler != nil {
+				w.errorHandler(err)
+			}
 		}
 	}
 }
