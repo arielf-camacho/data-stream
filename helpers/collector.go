@@ -45,6 +45,7 @@ func (c *Collector[T]) Items() []T {
 }
 
 func (c *Collector[T]) start() {
+	defer Drain(c.source)
 	defer c.wg.Done()
 
 	for v := range c.source {
@@ -52,7 +53,7 @@ func (c *Collector[T]) start() {
 		case <-c.ctx.Done():
 			return
 		default:
-			c.items = append(c.items, v)
 		}
+		c.items = append(c.items, v)
 	}
 }
