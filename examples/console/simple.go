@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/arielf-camacho/data-stream/operators"
+	"github.com/arielf-camacho/data-stream/flows"
 	"github.com/arielf-camacho/data-stream/sinks"
 	"github.com/arielf-camacho/data-stream/sources"
 )
@@ -18,7 +18,7 @@ func main() {
 		Slice([]byte{'1', '2', '3', '4', '5'}).
 		Build()
 
-	nextCharacter := operators.
+	nextCharacter := flows.
 		Map(func(x byte) (byte, error) { return x + 1, nil }).
 		Parallelism(4).
 		Build()

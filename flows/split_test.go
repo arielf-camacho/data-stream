@@ -1,4 +1,4 @@
-package operators_test
+package flows_test
 
 import (
 	"context"
@@ -8,12 +8,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/arielf-camacho/data-stream/flows"
 	"github.com/arielf-camacho/data-stream/helpers"
-	"github.com/arielf-camacho/data-stream/operators"
 	"github.com/arielf-camacho/data-stream/sources"
 )
 
-func TestSplitOperator_Matching(t *testing.T) {
+func TestSplitFlow_Matching(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -22,51 +22,51 @@ func TestSplitOperator_Matching(t *testing.T) {
 
 	cases := map[string]struct {
 		expected []int
-		subject  func() *operators.SplitOperator[int]
+		subject  func() *flows.SplitFlow[int]
 	}{
 		"splits-even-numbers-to-matching": {
 			expected: []int{2, 4, 6, 8, 10},
-			subject: func() *operators.SplitOperator[int] {
+			subject: func() *flows.SplitFlow[int] {
 				source := sources.Slice(items).Build()
-				return operators.Split(source, isEven).Build()
+				return flows.Split(source, isEven).Build()
 			},
 		},
 		"all-values-match-predicate": {
 			expected: []int{1, 2, 3, 4, 5},
-			subject: func() *operators.SplitOperator[int] {
+			subject: func() *flows.SplitFlow[int] {
 				alwaysTrue := func(x int) (bool, error) { return true, nil }
 				source := sources.Slice([]int{1, 2, 3, 4, 5}).Build()
-				return operators.Split(source, alwaysTrue).Build()
+				return flows.Split(source, alwaysTrue).Build()
 			},
 		},
 		"no-values-match-predicate": {
 			expected: nil,
-			subject: func() *operators.SplitOperator[int] {
+			subject: func() *flows.SplitFlow[int] {
 				alwaysFalse := func(x int) (bool, error) { return false, nil }
 				source := sources.Slice(items).Build()
-				return operators.Split(source, alwaysFalse).Build()
+				return flows.Split(source, alwaysFalse).Build()
 			},
 		},
 		"empty-input": {
 			expected: nil,
-			subject: func() *operators.SplitOperator[int] {
+			subject: func() *flows.SplitFlow[int] {
 				source := sources.Slice([]int{}).Build()
-				return operators.Split(source, isEven).Build()
+				return flows.Split(source, isEven).Build()
 			},
 		},
 		"greater-than-five-matches": {
 			expected: []int{6, 7, 8, 9, 10},
-			subject: func() *operators.SplitOperator[int] {
+			subject: func() *flows.SplitFlow[int] {
 				greaterThan5 := func(x int) (bool, error) { return x > 5, nil }
 				source := sources.Slice(items).Build()
-				return operators.Split(source, greaterThan5).Build()
+				return flows.Split(source, greaterThan5).Build()
 			},
 		},
 		"with-buffer-size": {
 			expected: []int{2, 4, 6, 8, 10},
-			subject: func() *operators.SplitOperator[int] {
+			subject: func() *flows.SplitFlow[int] {
 				source := sources.Slice(items).Build()
-				return operators.Split(source, isEven).BufferSize(5).Build()
+				return flows.Split(source, isEven).BufferSize(5).Build()
 			},
 		},
 	}
@@ -101,7 +101,7 @@ func TestSplitOperator_Matching(t *testing.T) {
 	}
 }
 
-func TestSplitOperator_NonMatching(t *testing.T) {
+func TestSplitFlow_NonMatching(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -110,44 +110,44 @@ func TestSplitOperator_NonMatching(t *testing.T) {
 
 	cases := map[string]struct {
 		expected []int
-		subject  func() *operators.SplitOperator[int]
+		subject  func() *flows.SplitFlow[int]
 	}{
 		"splits-odd-numbers-to-non-matching": {
 			expected: []int{1, 3, 5, 7, 9},
-			subject: func() *operators.SplitOperator[int] {
+			subject: func() *flows.SplitFlow[int] {
 				source := sources.Slice(items).Build()
-				return operators.Split(source, isEven).Build()
+				return flows.Split(source, isEven).Build()
 			},
 		},
 		"all-values-non-match-predicate": {
 			expected: []int{1, 2, 3, 4, 5},
-			subject: func() *operators.SplitOperator[int] {
+			subject: func() *flows.SplitFlow[int] {
 				alwaysFalse := func(x int) (bool, error) { return false, nil }
 				source := sources.Slice([]int{1, 2, 3, 4, 5}).Build()
-				return operators.Split(source, alwaysFalse).Build()
+				return flows.Split(source, alwaysFalse).Build()
 			},
 		},
 		"no-values-non-match-predicate": {
 			expected: nil,
-			subject: func() *operators.SplitOperator[int] {
+			subject: func() *flows.SplitFlow[int] {
 				alwaysTrue := func(x int) (bool, error) { return true, nil }
 				source := sources.Slice(items).Build()
-				return operators.Split(source, alwaysTrue).Build()
+				return flows.Split(source, alwaysTrue).Build()
 			},
 		},
 		"empty-input": {
 			expected: nil,
-			subject: func() *operators.SplitOperator[int] {
+			subject: func() *flows.SplitFlow[int] {
 				source := sources.Slice([]int{}).Build()
-				return operators.Split(source, isEven).Build()
+				return flows.Split(source, isEven).Build()
 			},
 		},
 		"less-than-or-equal-five-non-matching": {
 			expected: []int{1, 2, 3, 4, 5},
-			subject: func() *operators.SplitOperator[int] {
+			subject: func() *flows.SplitFlow[int] {
 				greaterThan5 := func(x int) (bool, error) { return x > 5, nil }
 				source := sources.Slice(items).Build()
-				return operators.Split(source, greaterThan5).Build()
+				return flows.Split(source, greaterThan5).Build()
 			},
 		},
 	}
@@ -182,7 +182,7 @@ func TestSplitOperator_NonMatching(t *testing.T) {
 	}
 }
 
-func TestSplitOperator_BothOutputs(t *testing.T) {
+func TestSplitFlow_BothOutputs(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -191,42 +191,42 @@ func TestSplitOperator_BothOutputs(t *testing.T) {
 	cases := map[string]struct {
 		expectedMatching    []int
 		expectedNonMatching []int
-		subject             func() *operators.SplitOperator[int]
+		subject             func() *flows.SplitFlow[int]
 	}{
 		"splits-even-and-odd": {
 			expectedMatching:    []int{2, 4, 6, 8, 10},
 			expectedNonMatching: []int{1, 3, 5, 7, 9},
-			subject: func() *operators.SplitOperator[int] {
+			subject: func() *flows.SplitFlow[int] {
 				isEven := func(x int) (bool, error) { return x%2 == 0, nil }
 				source := sources.Slice(items).Build()
-				return operators.Split(source, isEven).Build()
+				return flows.Split(source, isEven).Build()
 			},
 		},
 		"splits-by-range": {
 			expectedMatching:    []int{6, 7, 8, 9, 10},
 			expectedNonMatching: []int{1, 2, 3, 4, 5},
-			subject: func() *operators.SplitOperator[int] {
+			subject: func() *flows.SplitFlow[int] {
 				greaterThan5 := func(x int) (bool, error) { return x > 5, nil }
 				source := sources.Slice(items).Build()
-				return operators.Split(source, greaterThan5).Build()
+				return flows.Split(source, greaterThan5).Build()
 			},
 		},
 		"splits-by-divisibility": {
 			expectedMatching:    []int{3, 6, 9},
 			expectedNonMatching: []int{1, 2, 4, 5, 7, 8, 10},
-			subject: func() *operators.SplitOperator[int] {
+			subject: func() *flows.SplitFlow[int] {
 				divisibleBy3 := func(x int) (bool, error) { return x%3 == 0, nil }
 				source := sources.Slice(items).Build()
-				return operators.Split(source, divisibleBy3).Build()
+				return flows.Split(source, divisibleBy3).Build()
 			},
 		},
 		"empty-input-both-empty": {
 			expectedMatching:    nil,
 			expectedNonMatching: nil,
-			subject: func() *operators.SplitOperator[int] {
+			subject: func() *flows.SplitFlow[int] {
 				isEven := func(x int) (bool, error) { return x%2 == 0, nil }
 				source := sources.Slice([]int{}).Build()
-				return operators.Split(source, isEven).Build()
+				return flows.Split(source, isEven).Build()
 			},
 		},
 	}
@@ -262,7 +262,7 @@ func TestSplitOperator_BothOutputs(t *testing.T) {
 	}
 }
 
-func TestSplitOperator_ErrorHandling(t *testing.T) {
+func TestSplitFlow_ErrorHandling(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -274,13 +274,13 @@ func TestSplitOperator_ErrorHandling(t *testing.T) {
 		expectedNonMatching []int
 		subject             func(
 			chan error,
-		) *operators.SplitOperator[int]
+		) *flows.SplitFlow[int]
 	}{
 		"error-stops-processing-both-outputs": {
 			expectedErr:         assert.AnError,
 			expectedMatching:    []int{2, 4},
 			expectedNonMatching: []int{1, 3},
-			subject: func(errCh chan error) *operators.SplitOperator[int] {
+			subject: func(errCh chan error) *flows.SplitFlow[int] {
 				errPredicate := func(x int) (bool, error) {
 					if x == 5 {
 						return false, assert.AnError
@@ -288,7 +288,7 @@ func TestSplitOperator_ErrorHandling(t *testing.T) {
 					return x%2 == 0, nil
 				}
 				source := sources.Slice(items).Build()
-				return operators.
+				return flows.
 					Split(source, errPredicate).
 					ErrorHandler(func(err error) { errCh <- err }).
 					Build()
@@ -298,7 +298,7 @@ func TestSplitOperator_ErrorHandling(t *testing.T) {
 			expectedErr:         assert.AnError,
 			expectedMatching:    nil,
 			expectedNonMatching: nil,
-			subject: func(errCh chan error) *operators.SplitOperator[int] {
+			subject: func(errCh chan error) *flows.SplitFlow[int] {
 				errPredicate := func(x int) (bool, error) {
 					if x == 1 {
 						return false, assert.AnError
@@ -306,7 +306,7 @@ func TestSplitOperator_ErrorHandling(t *testing.T) {
 					return x%2 == 0, nil
 				}
 				source := sources.Slice(items).Build()
-				return operators.
+				return flows.
 					Split(source, errPredicate).
 					ErrorHandler(func(err error) { errCh <- err }).
 					Build()
@@ -316,12 +316,12 @@ func TestSplitOperator_ErrorHandling(t *testing.T) {
 			expectedErr:         nil,
 			expectedMatching:    nil,
 			expectedNonMatching: nil,
-			subject: func(errCh chan error) *operators.SplitOperator[int] {
+			subject: func(errCh chan error) *flows.SplitFlow[int] {
 				errPredicate := func(x int) (bool, error) {
 					return false, assert.AnError
 				}
 				source := sources.Slice(items).Build()
-				return operators.Split(source, errPredicate).Build()
+				return flows.Split(source, errPredicate).Build()
 			},
 		},
 	}
@@ -380,7 +380,7 @@ func TestSplitOperator_ErrorHandling(t *testing.T) {
 	}
 }
 
-func TestSplitOperator_ContextCancellation(t *testing.T) {
+func TestSplitFlow_ContextCancellation(t *testing.T) {
 	t.Parallel()
 
 	items := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
@@ -390,7 +390,7 @@ func TestSplitOperator_ContextCancellation(t *testing.T) {
 		expectedMatching    []int
 		expectedNonMatching []int
 		subject             func() (
-			*operators.SplitOperator[int],
+			*flows.SplitFlow[int],
 			context.Context,
 		)
 	}{
@@ -398,13 +398,13 @@ func TestSplitOperator_ContextCancellation(t *testing.T) {
 			expectedMatching:    nil,
 			expectedNonMatching: nil,
 			subject: func() (
-				*operators.SplitOperator[int],
+				*flows.SplitFlow[int],
 				context.Context,
 			) {
 				ctx, cancel := context.WithCancel(context.Background())
 				cancel()
 				source := sources.Slice(items).Context(ctx).Build()
-				split := operators.Split(source, isEven).Context(ctx).Build()
+				split := flows.Split(source, isEven).Context(ctx).Build()
 				return split, ctx
 			},
 		},
@@ -412,7 +412,7 @@ func TestSplitOperator_ContextCancellation(t *testing.T) {
 			expectedMatching:    nil,
 			expectedNonMatching: nil,
 			subject: func() (
-				*operators.SplitOperator[int],
+				*flows.SplitFlow[int],
 				context.Context,
 			) {
 				ctx, cancel := context.WithTimeout(
@@ -426,7 +426,7 @@ func TestSplitOperator_ContextCancellation(t *testing.T) {
 					largeSlice[i] = i
 				}
 				source := sources.Slice(largeSlice).Context(ctx).Build()
-				split := operators.Split(source, isEven).Context(ctx).Build()
+				split := flows.Split(source, isEven).Context(ctx).Build()
 				return split, ctx
 			},
 		},
@@ -473,7 +473,7 @@ func TestSplitOperator_ContextCancellation(t *testing.T) {
 	}
 }
 
-func TestSplitOperator_ToSink(t *testing.T) {
+func TestSplitFlow_ToSink(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -484,7 +484,7 @@ func TestSplitOperator_ToSink(t *testing.T) {
 		expectedMatching    []int
 		expectedNonMatching []int
 		subject             func() (
-			*operators.SplitOperator[int],
+			*flows.SplitFlow[int],
 			*helpers.Collector[int],
 			*helpers.Collector[int],
 		)
@@ -493,12 +493,12 @@ func TestSplitOperator_ToSink(t *testing.T) {
 			expectedMatching:    []int{2, 4, 6, 8, 10},
 			expectedNonMatching: []int{1, 3, 5, 7, 9},
 			subject: func() (
-				*operators.SplitOperator[int],
+				*flows.SplitFlow[int],
 				*helpers.Collector[int],
 				*helpers.Collector[int],
 			) {
 				source := sources.Slice(items).Build()
-				split := operators.Split(source, isEven).Build()
+				split := flows.Split(source, isEven).Build()
 				collector1 := helpers.NewCollector[int](ctx)
 				collector2 := helpers.NewCollector[int](ctx)
 				return split, collector1, collector2
@@ -508,12 +508,12 @@ func TestSplitOperator_ToSink(t *testing.T) {
 			expectedMatching:    []int{2, 4, 6, 8, 10},
 			expectedNonMatching: []int{1, 3, 5, 7, 9},
 			subject: func() (
-				*operators.SplitOperator[int],
+				*flows.SplitFlow[int],
 				*helpers.Collector[int],
 				*helpers.Collector[int],
 			) {
 				source := sources.Slice(items).Build()
-				split := operators.
+				split := flows.
 					Split(source, isEven).
 					BufferSize(10).
 					Build()
@@ -542,7 +542,7 @@ func TestSplitOperator_ToSink(t *testing.T) {
 	}
 }
 
-func TestSplitOperator_PanicOnNilPredicate(t *testing.T) {
+func TestSplitFlow_PanicOnNilPredicate(t *testing.T) {
 	t.Parallel()
 
 	// Given
@@ -550,5 +550,5 @@ func TestSplitOperator_PanicOnNilPredicate(t *testing.T) {
 	source := sources.Slice(items).Build()
 
 	// When & Then
-	assert.Panics(t, func() { operators.Split(source, nil).Build() })
+	assert.Panics(t, func() { flows.Split(source, nil).Build() })
 }

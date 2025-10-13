@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/arielf-camacho/data-stream/operators"
+	"github.com/arielf-camacho/data-stream/flows"
 	"github.com/arielf-camacho/data-stream/sinks"
 	"github.com/arielf-camacho/data-stream/sources"
 )
@@ -17,20 +17,20 @@ func main() {
 		Single(func() (string, error) { return "Hello, world!", nil }).
 		Build()
 
-	map1 := operators.
+	map1 := flows.
 		Map(func(x string) (string, error) { return x + "1", nil }).
 		Build()
-	map2 := operators.
+	map2 := flows.
 		Map(func(x string) (string, error) { return x + "2", nil }).
 		Build()
-	map3 := operators.
+	map3 := flows.
 		Map(func(x string) (string, error) { return x + "3", nil }).
 		Build()
 
-	spread := operators.Spread(source, map1, map2, map3).Build()
+	spread := flows.Spread(source, map1, map2, map3).Build()
 
-	merge := operators.Merge(spread.Outlets()...).Build()
-	mapMerge := operators.
+	merge := flows.Merge(spread.Outlets()...).Build()
+	mapMerge := flows.
 		Map(func(x string) (string, error) { return x + "merge", nil }).
 		Build()
 

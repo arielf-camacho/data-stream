@@ -1,4 +1,4 @@
-package operators
+package flows
 
 import (
 	"context"
@@ -9,19 +9,19 @@ import (
 	"github.com/arielf-camacho/data-stream/primitives"
 )
 
-var _ = (primitives.Flow[byte, int])(&MapOperator[byte, int]{})
+var _ = (primitives.Flow[byte, int])(&MapFlow[byte, int]{})
 
-// MapOperator is an operator that maps the values from the input channel to the
+// MapFlow is an operator that maps the values from the input channel to the
 // output channel using the given transformation function.
 //
-// Graphically, the MapOperator looks like this:
+// Graphically, the MapFlow looks like this:
 //
 // -- 1 -- 2 -- 3 -- 4 -- 5  -- | -->
 //
-// -- MapOperator f(x) = x*2 --
+// -- MapFlow f(x) = x*2 --
 //
 // -- 2 -- 4 -- 6 -- 8 -- 10 -- | -->
-type MapOperator[IN any, OUT any] struct {
+type MapFlow[IN any, OUT any] struct {
 	ctx context.Context
 
 	activated    atomic.Bool
@@ -34,7 +34,7 @@ type MapOperator[IN any, OUT any] struct {
 	out chan OUT
 }
 
-// MapBuilder is a fluent builder for MapOperator.
+// MapBuilder is a fluent builder for MapFlow.
 type MapBuilder[IN any, OUT any] struct {
 	fn           func(IN) (OUT, error)
 	ctx          context.Context
@@ -43,7 +43,7 @@ type MapBuilder[IN any, OUT any] struct {
 	bufferSize   uint
 }
 
-// Map creates a new MapBuilder for building a MapOperator.
+// Map creates a new MapBuilder for building a MapFlow.
 func Map[IN, OUT any](
 	fn func(IN) (OUT, error),
 ) *MapBuilder[IN, OUT] {
@@ -54,7 +54,7 @@ func Map[IN, OUT any](
 	}
 }
 
-// Context sets the context for the MapOperator.
+// Context sets the context for the MapFlow.
 func (b *MapBuilder[IN, OUT]) Context(
 	ctx context.Context,
 ) *MapBuilder[IN, OUT] {
@@ -62,7 +62,7 @@ func (b *MapBuilder[IN, OUT]) Context(
 	return b
 }
 
-// Parallelism sets the parallelism level for the MapOperator.
+// Parallelism sets the parallelism level for the MapFlow.
 func (b *MapBuilder[IN, OUT]) Parallelism(
 	p uint,
 ) *MapBuilder[IN, OUT] {
@@ -70,7 +70,7 @@ func (b *MapBuilder[IN, OUT]) Parallelism(
 	return b
 }
 
-// ErrorHandler sets the error handler for the MapOperator.
+// ErrorHandler sets the error handler for the MapFlow.
 func (b *MapBuilder[IN, OUT]) ErrorHandler(
 	handler func(error),
 ) *MapBuilder[IN, OUT] {
@@ -78,15 +78,15 @@ func (b *MapBuilder[IN, OUT]) ErrorHandler(
 	return b
 }
 
-// BufferSize sets the buffer size for the MapOperator channels.
+// BufferSize sets the buffer size for the MapFlow channels.
 func (b *MapBuilder[IN, OUT]) BufferSize(size uint) *MapBuilder[IN, OUT] {
 	b.bufferSize = size
 	return b
 }
 
-// Build creates and starts the MapOperator.
-func (b *MapBuilder[IN, OUT]) Build() *MapOperator[IN, OUT] {
-	operator := &MapOperator[IN, OUT]{
+// Build creates and starts the MapFlow.
+func (b *MapBuilder[IN, OUT]) Build() *MapFlow[IN, OUT] {
+	operator := &MapFlow[IN, OUT]{
 		fn:           b.fn,
 		ctx:          b.ctx,
 		parallelism:  b.parallelism,
@@ -102,15 +102,15 @@ func (b *MapBuilder[IN, OUT]) Build() *MapOperator[IN, OUT] {
 	return operator
 }
 
-func (m *MapOperator[IN, OUT]) In() chan<- IN {
+func (m *MapFlow[IN, OUT]) In() chan<- IN {
 	return m.in
 }
 
-func (m *MapOperator[IN, OUT]) Out() <-chan OUT {
+func (m *MapFlow[IN, OUT]) Out() <-chan OUT {
 	return m.out
 }
 
-func (m *MapOperator[IN, OUT]) ToFlow(
+func (m *MapFlow[IN, OUT]) ToFlow(
 	in primitives.Flow[OUT, OUT],
 ) primitives.Flow[OUT, OUT] {
 	m.assertNotActive()
@@ -129,7 +129,7 @@ func (m *MapOperator[IN, OUT]) ToFlow(
 	return in
 }
 
-func (m *MapOperator[IN, OUT]) ToSink(in primitives.Sink[OUT]) {
+func (m *MapFlow[IN, OUT]) ToSink(in primitives.Sink[OUT]) {
 	m.assertNotActive()
 
 	go func() {
@@ -144,14 +144,14 @@ func (m *MapOperator[IN, OUT]) ToSink(in primitives.Sink[OUT]) {
 	}()
 }
 
-func (m *MapOperator[IN, OUT]) assertNotActive() {
+func (m *MapFlow[IN, OUT]) assertNotActive() {
 	if !m.activated.CompareAndSwap(false, true) {
 		// TODO: Use a logger to print this error, don't panic
-		panic("MapOperator is already streaming, cannot be used as a flow again")
+		panic("MapFlow is already streaming, cannot be used as a flow again")
 	}
 }
 
-func (m *MapOperator[IN, OUT]) start() {
+func (m *MapFlow[IN, OUT]) start() {
 	if m.parallelism <= 1 {
 		m.sync()
 	} else {
@@ -159,7 +159,7 @@ func (m *MapOperator[IN, OUT]) start() {
 	}
 }
 
-func (m *MapOperator[IN, OUT]) sync() {
+func (m *MapFlow[IN, OUT]) sync() {
 	defer close(m.out)
 
 	for v := range m.in {
@@ -185,7 +185,7 @@ func (m *MapOperator[IN, OUT]) sync() {
 	}
 }
 
-func (m *MapOperator[IN, OUT]) async() {
+func (m *MapFlow[IN, OUT]) async() {
 	defer close(m.out)
 	defer helpers.Drain(m.in)
 

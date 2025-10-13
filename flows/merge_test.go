@@ -1,4 +1,4 @@
-package operators_test
+package flows_test
 
 import (
 	"context"
@@ -7,91 +7,91 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/arielf-camacho/data-stream/flows"
 	"github.com/arielf-camacho/data-stream/helpers"
-	"github.com/arielf-camacho/data-stream/operators"
 	"github.com/arielf-camacho/data-stream/primitives"
 	"github.com/arielf-camacho/data-stream/sinks"
 	"github.com/arielf-camacho/data-stream/sources"
 )
 
-func TestMergeOperator_ToFlow(t *testing.T) {
+func TestMergeFlow_ToFlow(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
 
 	cases := map[string]struct {
 		expected []int
-		subject  func() (*operators.MergeOperator[int], *helpers.Collector[int])
+		subject  func() (*flows.MergeFlow[int], *helpers.Collector[int])
 	}{
 		"merges-two-sources": {
 			expected: []int{1, 2, 3, 4, 5, 6},
-			subject: func() (*operators.MergeOperator[int], *helpers.Collector[int]) {
+			subject: func() (*flows.MergeFlow[int], *helpers.Collector[int]) {
 				source1 := sources.Slice([]int{1, 2, 3}).Build()
 				source2 := sources.Slice([]int{4, 5, 6}).Build()
 
 				collector := helpers.NewCollector[int](ctx)
-				merge := operators.Merge(source1, source2).Build()
+				merge := flows.Merge(source1, source2).Build()
 
 				return merge, collector
 			},
 		},
 		"merges-three-sources": {
 			expected: []int{1, 2, 3, 4, 5, 6, 7, 8, 9},
-			subject: func() (*operators.MergeOperator[int], *helpers.Collector[int]) {
+			subject: func() (*flows.MergeFlow[int], *helpers.Collector[int]) {
 				source1 := sources.Slice([]int{1, 2, 3}).Build()
 				source2 := sources.Slice([]int{4, 5, 6}).Build()
 				source3 := sources.Slice([]int{7, 8, 9}).Build()
 
 				collector := helpers.NewCollector[int](ctx)
-				merge := operators.Merge(source1, source2, source3).Build()
+				merge := flows.Merge(source1, source2, source3).Build()
 
 				return merge, collector
 			},
 		},
 		"single-source": {
 			expected: []int{1, 2, 3, 4, 5},
-			subject: func() (*operators.MergeOperator[int], *helpers.Collector[int]) {
+			subject: func() (*flows.MergeFlow[int], *helpers.Collector[int]) {
 				source := sources.Slice([]int{1, 2, 3, 4, 5}).Build()
 
 				collector := helpers.NewCollector[int](ctx)
-				merge := operators.Merge(source).Build()
+				merge := flows.Merge(source).Build()
 
 				return merge, collector
 			},
 		},
 		"empty-sources": {
 			expected: nil,
-			subject: func() (*operators.MergeOperator[int], *helpers.Collector[int]) {
+			subject: func() (*flows.MergeFlow[int], *helpers.Collector[int]) {
 				source1 := sources.Slice([]int{}).Build()
 				source2 := sources.Slice([]int{}).Build()
 
 				collector := helpers.NewCollector[int](ctx)
-				merge := operators.Merge(source1, source2).Build()
+				merge := flows.Merge(source1, source2).Build()
 
 				return merge, collector
 			},
 		},
 		"mixed-empty-and-populated-sources": {
 			expected: []int{1, 2, 3},
-			subject: func() (*operators.MergeOperator[int], *helpers.Collector[int]) {
+			subject: func() (*flows.MergeFlow[int], *helpers.Collector[int]) {
 				source1 := sources.Slice([]int{}).Build()
 				source2 := sources.Slice([]int{1, 2, 3}).Build()
 				source3 := sources.Slice([]int{}).Build()
 
 				collector := helpers.NewCollector[int](ctx)
-				merge := operators.Merge(source1, source2, source3).Build()
+				merge := flows.Merge(source1, source2, source3).Build()
 
 				return merge, collector
 			},
 		},
 		"with-buffer-size": {
 			expected: []int{1, 2, 3, 4},
-			subject: func() (*operators.MergeOperator[int], *helpers.Collector[int]) {
+			subject: func() (*flows.MergeFlow[int], *helpers.Collector[int]) {
 				source1 := sources.Slice([]int{1, 2}).Build()
 				source2 := sources.Slice([]int{3, 4}).Build()
 
 				collector := helpers.NewCollector[int](ctx)
-				merge := operators.Merge(source1, source2).BufferSize(5).Build()
+				merge := flows.Merge(source1, source2).BufferSize(5).Build()
 
 				return merge, collector
 			},
@@ -115,7 +115,7 @@ func TestMergeOperator_ToFlow(t *testing.T) {
 	}
 }
 
-func TestMergeOperator_ConcurrentMerging(t *testing.T) {
+func TestMergeFlow_ConcurrentMerging(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -136,11 +136,11 @@ func TestMergeOperator_ConcurrentMerging(t *testing.T) {
 	}
 
 	cases := map[string]struct {
-		subject    func() (*operators.MergeOperator[int], *helpers.Collector[int])
+		subject    func() (*flows.MergeFlow[int], *helpers.Collector[int])
 		assertFunc func(*testing.T, []int)
 	}{
 		"merges-sources-concurrently-not-sequentially": {
-			subject: func() (*operators.MergeOperator[int], *helpers.Collector[int]) {
+			subject: func() (*flows.MergeFlow[int], *helpers.Collector[int]) {
 				// Source1: slow, emits 1, 2
 				// Source2: fast, emits 3, 4
 				// If sequential: [1, 2, 3, 4]
@@ -149,7 +149,7 @@ func TestMergeOperator_ConcurrentMerging(t *testing.T) {
 				source2 := createSlowSource([]int{3, 4}, 10*time.Millisecond)
 
 				collector := helpers.NewCollector[int](ctx)
-				merge := operators.Merge(source1, source2).Build()
+				merge := flows.Merge(source1, source2).Build()
 
 				return merge, collector
 			},
@@ -192,7 +192,7 @@ func TestMergeOperator_ConcurrentMerging(t *testing.T) {
 	}
 }
 
-func TestMergeOperator_ContextCancellation(t *testing.T) {
+func TestMergeFlow_ContextCancellation(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]struct {
@@ -209,7 +209,7 @@ func TestMergeOperator_ContextCancellation(t *testing.T) {
 				outputCh := make(chan int)
 				sink := sinks.Channel(outputCh).Context(ctx).Build()
 
-				merge := operators.Merge(source1, source2).Context(ctx).Build()
+				merge := flows.Merge(source1, source2).Context(ctx).Build()
 
 				merge.ToSink(sink)
 

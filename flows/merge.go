@@ -1,4 +1,4 @@
-package operators
+package flows
 
 import (
 	"context"
@@ -8,19 +8,19 @@ import (
 	"github.com/arielf-camacho/data-stream/primitives"
 )
 
-// MergeOperator is an operator that merges the values from the input channels
+// MergeFlow is an operator that merges the values from the input channels
 // to the output channel.
 //
-// Graphically, the MergeOperator looks like this:
+// Graphically, the MergeFlow looks like this:
 //
 // -- 1 ------- 3 ------- 5 -- | -->
 //
 // ------- 2 ------- 4 ------- | -->
 //
-// -- MergeOperator ---------- | -->
+// -- MergeFlow ---------- | -->
 //
 // -> 1 -- 2 -- 3 -- 4 -- 5 -- | -->
-type MergeOperator[T any] struct {
+type MergeFlow[T any] struct {
 	from []primitives.Outlet[T]
 
 	ctx        context.Context
@@ -30,14 +30,14 @@ type MergeOperator[T any] struct {
 	out chan T
 }
 
-// MergeBuilder is a fluent builder for MergeOperator.
+// MergeBuilder is a fluent builder for MergeFlow.
 type MergeBuilder[T any] struct {
 	from       []primitives.Outlet[T]
 	ctx        context.Context
 	bufferSize uint
 }
 
-// Merge creates a new MergeBuilder for building a MergeOperator.
+// Merge creates a new MergeBuilder for building a MergeFlow.
 func Merge[T any](from ...primitives.Outlet[T]) *MergeBuilder[T] {
 	return &MergeBuilder[T]{
 		from: from,
@@ -45,22 +45,22 @@ func Merge[T any](from ...primitives.Outlet[T]) *MergeBuilder[T] {
 	}
 }
 
-// Context sets the context for the MergeOperator.
+// Context sets the context for the MergeFlow.
 func (b *MergeBuilder[T]) Context(ctx context.Context) *MergeBuilder[T] {
 	b.ctx = ctx
 	return b
 }
 
-// BufferSize sets the buffer size for the MergeOperator output
+// BufferSize sets the buffer size for the MergeFlow output
 // channel.
 func (b *MergeBuilder[T]) BufferSize(size uint) *MergeBuilder[T] {
 	b.bufferSize = size
 	return b
 }
 
-// Build creates and starts the MergeOperator.
-func (b *MergeBuilder[T]) Build() *MergeOperator[T] {
-	merge := &MergeOperator[T]{
+// Build creates and starts the MergeFlow.
+func (b *MergeBuilder[T]) Build() *MergeFlow[T] {
+	merge := &MergeFlow[T]{
 		from:       b.from,
 		ctx:        b.ctx,
 		bufferSize: b.bufferSize,
@@ -73,7 +73,7 @@ func (b *MergeBuilder[T]) Build() *MergeOperator[T] {
 	return merge
 }
 
-func (m *MergeOperator[T]) ToFlow(in primitives.Flow[T, T]) primitives.Flow[T, T] {
+func (m *MergeFlow[T]) ToFlow(in primitives.Flow[T, T]) primitives.Flow[T, T] {
 	m.assertNotActive()
 
 	go func() {
@@ -90,7 +90,7 @@ func (m *MergeOperator[T]) ToFlow(in primitives.Flow[T, T]) primitives.Flow[T, T
 	return in
 }
 
-func (m *MergeOperator[T]) ToSink(in primitives.Sink[T]) {
+func (m *MergeFlow[T]) ToSink(in primitives.Sink[T]) {
 	m.assertNotActive()
 
 	go func() {
@@ -105,14 +105,14 @@ func (m *MergeOperator[T]) ToSink(in primitives.Sink[T]) {
 	}()
 }
 
-func (m *MergeOperator[T]) assertNotActive() {
+func (m *MergeFlow[T]) assertNotActive() {
 	if !m.activated.CompareAndSwap(false, true) {
 		// TODO: Use a logger to print this error, don't panic
-		panic("MergeOperator is already streaming, cannot be used as a flow again")
+		panic("MergeFlow is already streaming, cannot be used as a flow again")
 	}
 }
 
-func (m *MergeOperator[T]) start() {
+func (m *MergeFlow[T]) start() {
 	defer close(m.out)
 
 	var wg sync.WaitGroup

@@ -1,4 +1,4 @@
-package operators
+package flows
 
 import (
 	"context"
@@ -7,11 +7,11 @@ import (
 	"github.com/arielf-camacho/data-stream/primitives"
 )
 
-var _ = primitives.Flow[int, any](&PassThroughOperator[int, any]{})
+var _ = primitives.Flow[int, any](&PassThroughFlow[int, any]{})
 
-// PassThroughOperator is an operator that passes through the values from the
+// PassThroughFlow is an operator that passes through the values from the
 // input channel to the output channel.
-type PassThroughOperator[IN any, OUT any] struct {
+type PassThroughFlow[IN any, OUT any] struct {
 	ctx        context.Context
 	activated  atomic.Bool
 	bufferSize uint
@@ -21,7 +21,7 @@ type PassThroughOperator[IN any, OUT any] struct {
 	out     chan OUT
 }
 
-// PassThroughBuilder is a fluent builder for PassThroughOperator.
+// PassThroughBuilder is a fluent builder for PassThroughFlow.
 type PassThroughBuilder[IN any, OUT any] struct {
 	ctx        context.Context
 	bufferSize uint
@@ -29,7 +29,7 @@ type PassThroughBuilder[IN any, OUT any] struct {
 }
 
 // PassThrough creates a new PassThroughBuilder for building a
-// PassThroughOperator.
+// PassThroughFlow.
 func PassThrough[IN any, OUT any]() *PassThroughBuilder[IN, OUT] {
 	return &PassThroughBuilder[IN, OUT]{
 		ctx:     context.Background(),
@@ -37,7 +37,7 @@ func PassThrough[IN any, OUT any]() *PassThroughBuilder[IN, OUT] {
 	}
 }
 
-// Context sets the context for the PassThroughOperator.
+// Context sets the context for the PassThroughFlow.
 func (b *PassThroughBuilder[IN, OUT]) Context(
 	ctx context.Context,
 ) *PassThroughBuilder[IN, OUT] {
@@ -45,7 +45,7 @@ func (b *PassThroughBuilder[IN, OUT]) Context(
 	return b
 }
 
-// BufferSize sets the buffer size for the PassThroughOperator channels.
+// BufferSize sets the buffer size for the PassThroughFlow channels.
 func (b *PassThroughBuilder[IN, OUT]) BufferSize(
 	size uint,
 ) *PassThroughBuilder[IN, OUT] {
@@ -60,9 +60,9 @@ func (b *PassThroughBuilder[IN, OUT]) Convert(
 	return b
 }
 
-// Build creates and starts the PassThroughOperator.
-func (b *PassThroughBuilder[IN, OUT]) Build() *PassThroughOperator[IN, OUT] {
-	operator := &PassThroughOperator[IN, OUT]{
+// Build creates and starts the PassThroughFlow.
+func (b *PassThroughBuilder[IN, OUT]) Build() *PassThroughFlow[IN, OUT] {
+	operator := &PassThroughFlow[IN, OUT]{
 		ctx:        b.ctx,
 		bufferSize: b.bufferSize,
 		convert:    b.convert,
@@ -76,17 +76,17 @@ func (b *PassThroughBuilder[IN, OUT]) Build() *PassThroughOperator[IN, OUT] {
 	return operator
 }
 
-func (p *PassThroughOperator[IN, OUT]) Out() <-chan OUT {
+func (p *PassThroughFlow[IN, OUT]) Out() <-chan OUT {
 	return p.out
 }
 
-func (o *PassThroughOperator[IN, OUT]) In() chan<- IN {
+func (o *PassThroughFlow[IN, OUT]) In() chan<- IN {
 	return o.in
 }
 
-// ToFlow passes the values from the PassThroughOperator to the given flow. This
+// ToFlow passes the values from the PassThroughFlow to the given flow. This
 // is exclusive with ToSink, either one must be called.
-func (p *PassThroughOperator[IN, OUT]) ToFlow(
+func (p *PassThroughFlow[IN, OUT]) ToFlow(
 	in primitives.Flow[OUT, OUT],
 ) primitives.Flow[OUT, OUT] {
 	p.assertNotActive()
@@ -105,9 +105,9 @@ func (p *PassThroughOperator[IN, OUT]) ToFlow(
 	return in
 }
 
-// ToSink passes the values from the PassThroughOperator to the given sink. This
+// ToSink passes the values from the PassThroughFlow to the given sink. This
 // is exclusive with ToFlow, either one must be called.
-func (p *PassThroughOperator[IN, OUT]) ToSink(
+func (p *PassThroughFlow[IN, OUT]) ToSink(
 	in primitives.Sink[OUT],
 ) {
 	p.assertNotActive()
@@ -124,7 +124,7 @@ func (p *PassThroughOperator[IN, OUT]) ToSink(
 	}()
 }
 
-func (p *PassThroughOperator[IN, OUT]) start() {
+func (p *PassThroughFlow[IN, OUT]) start() {
 	defer close(p.out)
 
 	for v := range p.in {
@@ -137,10 +137,10 @@ func (p *PassThroughOperator[IN, OUT]) start() {
 	}
 }
 
-func (p *PassThroughOperator[IN, OUT]) assertNotActive() {
+func (p *PassThroughFlow[IN, OUT]) assertNotActive() {
 	if !p.activated.CompareAndSwap(false, true) {
 		// TODO: Use a logger to print this error, don't panic
-		panic("PassThroughOperator is already streaming, cannot be used as a flow again")
+		panic("PassThroughFlow is already streaming, cannot be used as a flow again")
 	}
 }
 

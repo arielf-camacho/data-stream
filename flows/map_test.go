@@ -1,4 +1,4 @@
-package operators_test
+package flows_test
 
 import (
 	"context"
@@ -9,12 +9,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/arielf-camacho/data-stream/flows"
 	"github.com/arielf-camacho/data-stream/helpers"
-	"github.com/arielf-camacho/data-stream/operators"
 	"github.com/arielf-camacho/data-stream/primitives"
 )
 
-func TestMapOperator_Out(t *testing.T) {
+func TestMapFlow_Out(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -28,7 +28,7 @@ func TestMapOperator_Out(t *testing.T) {
 		"sync-mode-transforms-all-values": {
 			expected: []int{2, 4, 6, 8, 10},
 			subject: func() (primitives.Flow[int, int], context.Context) {
-				op := operators.Map(double).Build()
+				op := flows.Map(double).Build()
 				go func() {
 					for _, item := range items {
 						op.In() <- item
@@ -41,7 +41,7 @@ func TestMapOperator_Out(t *testing.T) {
 		"async-mode-transforms-all-values": {
 			expected: []int{2, 4, 6, 8, 10},
 			subject: func() (primitives.Flow[int, int], context.Context) {
-				op := operators.Map(double).Parallelism(3).Build()
+				op := flows.Map(double).Parallelism(3).Build()
 				go func() {
 					for _, item := range items {
 						op.In() <- item
@@ -54,7 +54,7 @@ func TestMapOperator_Out(t *testing.T) {
 		"empty-input": {
 			expected: nil,
 			subject: func() (primitives.Flow[int, int], context.Context) {
-				op := operators.Map(double).Build()
+				op := flows.Map(double).Build()
 				close(op.In())
 				return op, ctx
 			},
@@ -64,7 +64,7 @@ func TestMapOperator_Out(t *testing.T) {
 			subject: func() (primitives.Flow[int, int], context.Context) {
 				ctx, cancel := context.WithCancel(ctx)
 				cancel()
-				op := operators.Map(double).Context(ctx).Build()
+				op := flows.Map(double).Context(ctx).Build()
 				go func() {
 					for _, item := range items {
 						op.In() <- item
@@ -79,7 +79,7 @@ func TestMapOperator_Out(t *testing.T) {
 			subject: func() (primitives.Flow[int, int], context.Context) {
 				ctx, cancel := context.WithCancel(ctx)
 				cancel()
-				op := operators.Map(double).Context(ctx).Parallelism(3).Build()
+				op := flows.Map(double).Context(ctx).Parallelism(3).Build()
 				go func() {
 					for _, item := range items {
 						op.In() <- item
@@ -107,7 +107,7 @@ func TestMapOperator_Out(t *testing.T) {
 	}
 }
 
-func TestMapOperator_ErrorHandling(t *testing.T) {
+func TestMapFlow_ErrorHandling(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -117,20 +117,20 @@ func TestMapOperator_ErrorHandling(t *testing.T) {
 		expectedErr       error
 		expectedCollected []int
 		parallelism       uint
-		subject           func(uint, chan error) *operators.MapOperator[int, int]
+		subject           func(uint, chan error) *flows.MapFlow[int, int]
 	}{
 		"error-stops-processing-sync-mode": {
 			expectedErr:       assert.AnError,
 			expectedCollected: []int{2, 4, 6, 8},
 			parallelism:       1,
-			subject: func(p uint, errCh chan error) *operators.MapOperator[int, int] {
+			subject: func(p uint, errCh chan error) *flows.MapFlow[int, int] {
 				errTransform := func(x int) (int, error) {
 					if x == 5 {
 						return 0, assert.AnError
 					}
 					return x * 2, nil
 				}
-				op := operators.
+				op := flows.
 					Map(errTransform).
 					Parallelism(p).
 					ErrorHandler(func(err error) { errCh <- err }).
@@ -148,14 +148,14 @@ func TestMapOperator_ErrorHandling(t *testing.T) {
 			expectedErr:       assert.AnError,
 			expectedCollected: nil,
 			parallelism:       3,
-			subject: func(p uint, errCh chan error) *operators.MapOperator[int, int] {
+			subject: func(p uint, errCh chan error) *flows.MapFlow[int, int] {
 				errTransform := func(x int) (int, error) {
 					if x == 5 {
 						return 0, assert.AnError
 					}
 					return x * 2, nil
 				}
-				op := operators.
+				op := flows.
 					Map(errTransform).
 					Parallelism(p).
 					ErrorHandler(func(err error) { errCh <- err }).
@@ -173,7 +173,7 @@ func TestMapOperator_ErrorHandling(t *testing.T) {
 			expectedErr:       assert.AnError,
 			expectedCollected: []int{2},
 			parallelism:       1,
-			subject: func(p uint, errCh chan error) *operators.MapOperator[int, int] {
+			subject: func(p uint, errCh chan error) *flows.MapFlow[int, int] {
 				errTransform := func(x int) (int, error) {
 					if x == 2 {
 						return 0, assert.AnError
@@ -183,7 +183,7 @@ func TestMapOperator_ErrorHandling(t *testing.T) {
 					}
 					return x * 2, nil
 				}
-				op := operators.
+				op := flows.
 					Map(errTransform).
 					Parallelism(p).
 					ErrorHandler(func(err error) { errCh <- err }).
@@ -242,7 +242,7 @@ func TestMapOperator_ErrorHandling(t *testing.T) {
 	}
 }
 
-func TestMapOperator_ToFlow(t *testing.T) {
+func TestMapFlow_ToFlow(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -251,15 +251,15 @@ func TestMapOperator_ToFlow(t *testing.T) {
 
 	cases := map[string]struct {
 		expected []int
-		subject  func() (*operators.MapOperator[int, int], *helpers.Collector[int])
+		subject  func() (*flows.MapFlow[int, int], *helpers.Collector[int])
 	}{
 		"sync-mode-streams-all-values-to-collector": {
 			expected: []int{2, 4, 6, 8, 10},
 			subject: func() (
-				*operators.MapOperator[int, int],
+				*flows.MapFlow[int, int],
 				*helpers.Collector[int],
 			) {
-				op := operators.Map(double).Build()
+				op := flows.Map(double).Build()
 				collector := helpers.NewCollector[int](ctx)
 
 				go func() {
@@ -275,10 +275,10 @@ func TestMapOperator_ToFlow(t *testing.T) {
 		"async-mode-streams-all-values-to-collector": {
 			expected: []int{2, 4, 6, 8, 10},
 			subject: func() (
-				*operators.MapOperator[int, int],
+				*flows.MapFlow[int, int],
 				*helpers.Collector[int],
 			) {
-				op := operators.Map(double).Parallelism(3).Build()
+				op := flows.Map(double).Parallelism(3).Build()
 				collector := helpers.NewCollector[int](ctx)
 
 				go func() {
@@ -294,10 +294,10 @@ func TestMapOperator_ToFlow(t *testing.T) {
 		"high-parallelism-preserves-all-values": {
 			expected: []int{2, 4, 6, 8, 10},
 			subject: func() (
-				*operators.MapOperator[int, int],
+				*flows.MapFlow[int, int],
 				*helpers.Collector[int],
 			) {
-				op := operators.Map(double).Parallelism(10).Build()
+				op := flows.Map(double).Parallelism(10).Build()
 				collector := helpers.NewCollector[int](ctx)
 
 				go func() {
@@ -328,7 +328,7 @@ func TestMapOperator_ToFlow(t *testing.T) {
 	}
 }
 
-func TestMapOperator_ParallelExecution(t *testing.T) {
+func TestMapFlow_ParallelExecution(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -387,7 +387,7 @@ func TestMapOperator_ParallelExecution(t *testing.T) {
 			}
 
 			// Given
-			op := operators.Map(slowFunc).Parallelism(c.parallelism).Build()
+			op := flows.Map(slowFunc).Parallelism(c.parallelism).Build()
 
 			go func() {
 				for _, item := range c.items {

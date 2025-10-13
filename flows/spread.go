@@ -1,4 +1,4 @@
-package operators
+package flows
 
 import (
 	"context"
@@ -7,21 +7,21 @@ import (
 	"github.com/samber/lo"
 )
 
-// SpreadOperator is an operator that spreads the values from the input channel
+// SpreadFlow is an operator that spreads the values from the input channel
 // to the output channels.
 //
-// Graphically, the SpreadOperator looks like this:
+// Graphically, the SpreadFlow looks like this:
 //
 // -- 1 -- 2 -- 3 -- 4 -- 5 -- | -->
 //
-// -- SpreadOperator with 3 outputs --
+// -- SpreadFlow with 3 outputs --
 //
 // -- 1 -- 2 -- 3 -- 4 -- 5 -- | -->
 //
 // -- 1 -- 2 -- 3 -- 4 -- 5 -- | -->
 //
 // -- 1 -- 2 -- 3 -- 4 -- 5 -- | -->
-type SpreadOperator[T any] struct {
+type SpreadFlow[T any] struct {
 	ctx context.Context
 
 	bufferSize uint
@@ -30,7 +30,7 @@ type SpreadOperator[T any] struct {
 	out []primitives.Flow[T, T]
 }
 
-// Spread creates a new SpreadBuilder for building a SpreadOperator.
+// Spread creates a new SpreadBuilder for building a SpreadFlow.
 func Spread[T any](
 	in primitives.Outlet[T],
 	out ...primitives.Flow[T, T],
@@ -43,7 +43,7 @@ func Spread[T any](
 	}
 }
 
-// SpreadBuilder is a fluent builder for SpreadOperator.
+// SpreadBuilder is a fluent builder for SpreadFlow.
 type SpreadBuilder[T any] struct {
 	bufferSize uint
 	ctx        context.Context
@@ -52,25 +52,25 @@ type SpreadBuilder[T any] struct {
 	out []primitives.Flow[T, T]
 }
 
-// BufferSize sets the buffer size for the SpreadOperator channels.
+// BufferSize sets the buffer size for the SpreadFlow channels.
 func (b *SpreadBuilder[T]) BufferSize(size uint) *SpreadBuilder[T] {
 	b.bufferSize = size
 	return b
 }
 
-// Context sets the context for the SpreadOperator.
+// Context sets the context for the SpreadFlow.
 func (b *SpreadBuilder[T]) Context(ctx context.Context) *SpreadBuilder[T] {
 	b.ctx = ctx
 	return b
 }
 
-// Build creates and starts the SpreadOperator.
-func (b *SpreadBuilder[T]) Build() *SpreadOperator[T] {
+// Build creates and starts the SpreadFlow.
+func (b *SpreadBuilder[T]) Build() *SpreadFlow[T] {
 	if len(b.out) == 0 {
-		panic("SpreadOperator requires at least one output")
+		panic("SpreadFlow requires at least one output")
 	}
 
-	operator := &SpreadOperator[T]{
+	operator := &SpreadFlow[T]{
 		ctx:        b.ctx,
 		bufferSize: b.bufferSize,
 
@@ -83,14 +83,14 @@ func (b *SpreadBuilder[T]) Build() *SpreadOperator[T] {
 	return operator
 }
 
-func (s *SpreadOperator[T]) Outlets() []primitives.Outlet[T] {
+func (s *SpreadFlow[T]) Outlets() []primitives.Outlet[T] {
 	return lo.Map(
 		s.out,
 		func(out primitives.Flow[T, T], _ int) primitives.Outlet[T] { return out },
 	)
 }
 
-func (s *SpreadOperator[T]) start() {
+func (s *SpreadFlow[T]) start() {
 	defer func() {
 		for _, out := range s.out {
 			close(out.In())

@@ -1,4 +1,4 @@
-package operators_test
+package flows_test
 
 import (
 	"context"
@@ -8,12 +8,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/arielf-camacho/data-stream/flows"
 	"github.com/arielf-camacho/data-stream/helpers"
-	"github.com/arielf-camacho/data-stream/operators"
 	"github.com/arielf-camacho/data-stream/primitives"
 )
 
-func TestFilterOperator_Out(t *testing.T) {
+func TestFilterFlow_Out(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -27,7 +27,7 @@ func TestFilterOperator_Out(t *testing.T) {
 		"filters-values-matching-predicate": {
 			expected: []int{6, 7, 8, 9, 10},
 			subject: func() (primitives.Flow[int, int], context.Context) {
-				op := operators.Filter(greaterThan5).Build()
+				op := flows.Filter(greaterThan5).Build()
 				go func() {
 					for _, item := range items {
 						op.In() <- item
@@ -41,7 +41,7 @@ func TestFilterOperator_Out(t *testing.T) {
 			expected: []int{1, 2, 3, 4, 5},
 			subject: func() (primitives.Flow[int, int], context.Context) {
 				alwaysTrue := func(x int) (bool, error) { return true, nil }
-				op := operators.Filter(alwaysTrue).Build()
+				op := flows.Filter(alwaysTrue).Build()
 				go func() {
 					for _, item := range []int{1, 2, 3, 4, 5} {
 						op.In() <- item
@@ -55,7 +55,7 @@ func TestFilterOperator_Out(t *testing.T) {
 			expected: nil,
 			subject: func() (primitives.Flow[int, int], context.Context) {
 				alwaysFalse := func(x int) (bool, error) { return false, nil }
-				op := operators.Filter(alwaysFalse).Build()
+				op := flows.Filter(alwaysFalse).Build()
 				go func() {
 					for _, item := range items {
 						op.In() <- item
@@ -68,7 +68,7 @@ func TestFilterOperator_Out(t *testing.T) {
 		"empty-input": {
 			expected: nil,
 			subject: func() (primitives.Flow[int, int], context.Context) {
-				op := operators.Filter(greaterThan5).Build()
+				op := flows.Filter(greaterThan5).Build()
 				close(op.In())
 				return op, ctx
 			},
@@ -77,7 +77,7 @@ func TestFilterOperator_Out(t *testing.T) {
 			expected: []int{2, 4, 6, 8, 10},
 			subject: func() (primitives.Flow[int, int], context.Context) {
 				isEven := func(x int) (bool, error) { return x%2 == 0, nil }
-				op := operators.Filter(isEven).Build()
+				op := flows.Filter(isEven).Build()
 				go func() {
 					for _, item := range items {
 						op.In() <- item
@@ -92,7 +92,7 @@ func TestFilterOperator_Out(t *testing.T) {
 			subject: func() (primitives.Flow[int, int], context.Context) {
 				ctx, cancel := context.WithCancel(ctx)
 				cancel()
-				op := operators.Filter(greaterThan5).Context(ctx).Build()
+				op := flows.Filter(greaterThan5).Context(ctx).Build()
 				go func() {
 					for _, item := range items {
 						op.In() <- item
@@ -105,7 +105,7 @@ func TestFilterOperator_Out(t *testing.T) {
 		"with-buffer-size": {
 			expected: []int{6, 7, 8, 9, 10},
 			subject: func() (primitives.Flow[int, int], context.Context) {
-				op := operators.Filter(greaterThan5).BufferSize(5).Build()
+				op := flows.Filter(greaterThan5).BufferSize(5).Build()
 				go func() {
 					for _, item := range items {
 						op.In() <- item
@@ -133,7 +133,7 @@ func TestFilterOperator_Out(t *testing.T) {
 	}
 }
 
-func TestFilterOperator_ErrorHandling(t *testing.T) {
+func TestFilterFlow_ErrorHandling(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -142,19 +142,19 @@ func TestFilterOperator_ErrorHandling(t *testing.T) {
 	cases := map[string]struct {
 		expectedErr       error
 		expectedCollected []int
-		subject           func(chan error) *operators.FilterOperator[int]
+		subject           func(chan error) *flows.FilterFlow[int]
 	}{
 		"error-stops-processing": {
 			expectedErr:       assert.AnError,
 			expectedCollected: []int{4},
-			subject: func(errCh chan error) *operators.FilterOperator[int] {
+			subject: func(errCh chan error) *flows.FilterFlow[int] {
 				errPredicate := func(x int) (bool, error) {
 					if x == 5 {
 						return false, assert.AnError
 					}
 					return x > 3, nil
 				}
-				op := operators.
+				op := flows.
 					Filter(errPredicate).
 					ErrorHandler(func(err error) { errCh <- err }).
 					Build()
@@ -170,7 +170,7 @@ func TestFilterOperator_ErrorHandling(t *testing.T) {
 		"multiple-errors-only-first-handled": {
 			expectedErr:       assert.AnError,
 			expectedCollected: []int{1},
-			subject: func(errCh chan error) *operators.FilterOperator[int] {
+			subject: func(errCh chan error) *flows.FilterFlow[int] {
 				errPredicate := func(x int) (bool, error) {
 					if x == 2 {
 						return false, assert.AnError
@@ -180,7 +180,7 @@ func TestFilterOperator_ErrorHandling(t *testing.T) {
 					}
 					return true, nil
 				}
-				op := operators.
+				op := flows.
 					Filter(errPredicate).
 					ErrorHandler(func(err error) { errCh <- err }).
 					Build()
@@ -238,7 +238,7 @@ func TestFilterOperator_ErrorHandling(t *testing.T) {
 	}
 }
 
-func TestFilterOperator_ToFlow(t *testing.T) {
+func TestFilterFlow_ToFlow(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -249,15 +249,15 @@ func TestFilterOperator_ToFlow(t *testing.T) {
 
 	cases := map[string]struct {
 		expected []int
-		subject  func() (*operators.FilterOperator[int], *helpers.Collector[int])
+		subject  func() (*flows.FilterFlow[int], *helpers.Collector[int])
 	}{
 		"streams-filtered-values-to-collector": {
 			expected: []int{6, 7, 8, 9, 10},
 			subject: func() (
-				*operators.FilterOperator[int],
+				*flows.FilterFlow[int],
 				*helpers.Collector[int],
 			) {
-				op := operators.Filter(greaterThan5).Build()
+				op := flows.Filter(greaterThan5).Build()
 				collector := helpers.NewCollector[int](ctx)
 
 				go func() {
@@ -273,11 +273,11 @@ func TestFilterOperator_ToFlow(t *testing.T) {
 		"odd-numbers-only": {
 			expected: []int{1, 3, 5, 7, 9},
 			subject: func() (
-				*operators.FilterOperator[int],
+				*flows.FilterFlow[int],
 				*helpers.Collector[int],
 			) {
 				isOdd := func(x int) (bool, error) { return x%2 != 0, nil }
-				op := operators.Filter(isOdd).Build()
+				op := flows.Filter(isOdd).Build()
 				collector := helpers.NewCollector[int](ctx)
 
 				go func() {
@@ -293,10 +293,10 @@ func TestFilterOperator_ToFlow(t *testing.T) {
 		"with-buffer-streams-all-matching-values": {
 			expected: []int{6, 7, 8, 9, 10},
 			subject: func() (
-				*operators.FilterOperator[int],
+				*flows.FilterFlow[int],
 				*helpers.Collector[int],
 			) {
-				op := operators.Filter(greaterThan5).BufferSize(10).Build()
+				op := flows.Filter(greaterThan5).BufferSize(10).Build()
 				collector := helpers.NewCollector[int](ctx)
 
 				go func() {
@@ -327,7 +327,7 @@ func TestFilterOperator_ToFlow(t *testing.T) {
 	}
 }
 
-func TestFilterOperator_ChainedFilters(t *testing.T) {
+func TestFilterFlow_ChainedFilters(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -341,11 +341,11 @@ func TestFilterOperator_ChainedFilters(t *testing.T) {
 			expected: []int{6, 8, 10},
 			subject: func() <-chan int {
 				// Filter 1: > 5
-				filter1 := operators.
+				filter1 := flows.
 					Filter(func(x int) (bool, error) { return x > 5, nil }).
 					Build()
 				// Filter 2: even numbers
-				filter2 := operators.
+				filter2 := flows.
 					Filter(func(x int) (bool, error) { return x%2 == 0, nil }).
 					Build()
 
@@ -370,15 +370,15 @@ func TestFilterOperator_ChainedFilters(t *testing.T) {
 			expected: []int{6, 9},
 			subject: func() <-chan int {
 				// Filter 1: > 5
-				filter1 := operators.
+				filter1 := flows.
 					Filter(func(x int) (bool, error) { return x > 5, nil }).
 					Build()
 				// Filter 2: < 10
-				filter2 := operators.
+				filter2 := flows.
 					Filter(func(x int) (bool, error) { return x < 10, nil }).
 					Build()
 				// Filter 3: divisible by 3
-				filter3 := operators.
+				filter3 := flows.
 					Filter(func(x int) (bool, error) { return x%3 == 0, nil }).
 					Build()
 

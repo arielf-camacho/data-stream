@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/arielf-camacho/data-stream/operators"
+	"github.com/arielf-camacho/data-stream/flows"
 	"github.com/arielf-camacho/data-stream/sinks"
 	"github.com/arielf-camacho/data-stream/sources"
 )
@@ -20,7 +20,7 @@ func main() {
 	sink1 := sinks.Channel(outputCh1).Build()
 	sink2 := sinks.Channel(outputCh2).Build()
 
-	split := operators.
+	split := flows.
 		Split(source, func(x int) (bool, error) { return x%2 == 0, nil }).
 		Build()
 

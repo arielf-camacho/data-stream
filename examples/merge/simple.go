@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/arielf-camacho/data-stream/operators"
+	"github.com/arielf-camacho/data-stream/flows"
 	"github.com/arielf-camacho/data-stream/sinks"
 	"github.com/arielf-camacho/data-stream/sources"
 )
@@ -16,7 +16,7 @@ func main() {
 
 	sink := sinks.Channel(outputCh).Build()
 
-	merge := operators.Merge(source1, source2).BufferSize(10).Build()
+	merge := flows.Merge(source1, source2).BufferSize(10).Build()
 	merge.ToSink(sink)
 
 	for v := range outputCh {
