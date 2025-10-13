@@ -119,32 +119,35 @@ func (s *SplitFlow[T]) start() {
 	defer close(s.matching.In())
 	defer close(s.nonMatching.In())
 
-	for v := range s.in.Out() {
+	for {
 		select {
 		case <-s.ctx.Done():
 			return
-		default:
-		}
-
-		passes, err := s.predicate(v)
-		if err != nil {
-			if s.errorHandler != nil {
-				s.errorHandler(err)
-			}
-			return
-		}
-
-		if passes {
-			select {
-			case <-s.ctx.Done():
+		case v, ok := <-s.in.Out():
+			if !ok {
 				return
-			case s.matching.In() <- v:
 			}
-		} else {
-			select {
-			case <-s.ctx.Done():
+
+			passes, err := s.predicate(v)
+			if err != nil {
+				if s.errorHandler != nil {
+					s.errorHandler(err)
+				}
 				return
-			case s.nonMatching.In() <- v:
+			}
+
+			if passes {
+				select {
+				case <-s.ctx.Done():
+					return
+				case s.matching.In() <- v:
+				}
+			} else {
+				select {
+				case <-s.ctx.Done():
+					return
+				case s.nonMatching.In() <- v:
+				}
 			}
 		}
 	}

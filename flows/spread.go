@@ -91,12 +91,20 @@ func (s *SpreadFlow[T]) start() {
 		}
 	}()
 
-	for v := range s.in.Out() {
-		for _, out := range s.out {
-			select {
-			case <-s.ctx.Done():
+	for {
+		select {
+		case <-s.ctx.Done():
+			return
+		case v, ok := <-s.in.Out():
+			if !ok {
 				return
-			case out.In() <- v:
+			}
+			for _, out := range s.out {
+				select {
+				case <-s.ctx.Done():
+					return
+				case out.In() <- v:
+				}
 			}
 		}
 	}

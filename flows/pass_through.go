@@ -107,11 +107,19 @@ func (p *PassThroughFlow[IN, OUT]) ToFlow(
 
 	go func() {
 		defer close(in.In())
-		for v := range p.out {
+		for {
 			select {
 			case <-p.ctx.Done():
 				return
-			case in.In() <- v:
+			case v, ok := <-p.out:
+				if !ok {
+					return
+				}
+				select {
+				case <-p.ctx.Done():
+					return
+				case in.In() <- v:
+				}
 			}
 		}
 	}()
@@ -128,11 +136,19 @@ func (p *PassThroughFlow[IN, OUT]) ToSink(
 
 	go func() {
 		defer close(in.In())
-		for v := range p.out {
+		for {
 			select {
 			case <-p.ctx.Done():
 				return
-			case in.In() <- v:
+			case v, ok := <-p.out:
+				if !ok {
+					return
+				}
+				select {
+				case <-p.ctx.Done():
+					return
+				case in.In() <- v:
+				}
 			}
 		}
 	}()
@@ -141,18 +157,26 @@ func (p *PassThroughFlow[IN, OUT]) ToSink(
 func (p *PassThroughFlow[IN, OUT]) start() {
 	defer close(p.out)
 
-	for v := range p.in {
-		w, err := p.convert(v)
-		if err != nil {
-			if p.errorHandler != nil {
-				p.errorHandler(err)
-			}
-			return
-		}
+	for {
 		select {
 		case <-p.ctx.Done():
 			return
-		case p.out <- w:
+		case v, ok := <-p.in:
+			if !ok {
+				return
+			}
+			w, err := p.convert(v)
+			if err != nil {
+				if p.errorHandler != nil {
+					p.errorHandler(err)
+				}
+				return
+			}
+			select {
+			case <-p.ctx.Done():
+				return
+			case p.out <- w:
+			}
 		}
 	}
 }

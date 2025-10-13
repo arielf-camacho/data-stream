@@ -74,11 +74,19 @@ func (c *ChannelSink[T]) In() chan<- T {
 func (c *ChannelSink[T]) start() {
 	defer close(c.out)
 
-	for v := range c.in {
+	for {
 		select {
 		case <-c.ctx.Done():
 			return
-		case c.out <- v:
+		case v, ok := <-c.in:
+			if !ok {
+				return
+			}
+			select {
+			case <-c.ctx.Done():
+				return
+			case c.out <- v:
+			}
 		}
 	}
 }

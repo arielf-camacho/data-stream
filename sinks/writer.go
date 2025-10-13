@@ -83,11 +83,14 @@ func (w *WriterSink) In() chan<- []byte {
 }
 
 func (w *WriterSink) start() {
-	for v := range w.in {
+	for {
 		select {
 		case <-w.ctx.Done():
 			return
-		default:
+		case v, ok := <-w.in:
+			if !ok {
+				return
+			}
 			_, err := w.writer.Write(v)
 			if err != nil && w.errorHandler != nil {
 				w.errorHandler(err)

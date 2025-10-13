@@ -88,11 +88,19 @@ func (s *SingleSource[T]) ToFlow(
 	go func() {
 		defer close(in.In())
 
-		for v := range s.out {
+		for {
 			select {
 			case <-s.ctx.Done():
 				return
-			case in.In() <- v:
+			case v, ok := <-s.out:
+				if !ok {
+					return
+				}
+				select {
+				case <-s.ctx.Done():
+					return
+				case in.In() <- v:
+				}
 			}
 		}
 	}()
@@ -107,11 +115,19 @@ func (s *SingleSource[T]) ToSink(in primitives.Sink[T]) primitives.Sink[T] {
 
 	go func() {
 		defer close(in.In())
-		for v := range s.out {
+		for {
 			select {
 			case <-s.ctx.Done():
 				return
-			case in.In() <- v:
+			case v, ok := <-s.out:
+				if !ok {
+					return
+				}
+				select {
+				case <-s.ctx.Done():
+					return
+				case in.In() <- v:
+				}
 			}
 		}
 	}()

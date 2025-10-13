@@ -116,11 +116,19 @@ func (m *MapFlow[IN, OUT]) ToFlow(
 
 	go func() {
 		defer close(in.In())
-		for v := range m.out {
+		for {
 			select {
 			case <-m.ctx.Done():
 				return
-			case in.In() <- v:
+			case v, ok := <-m.out:
+				if !ok {
+					return
+				}
+				select {
+				case <-m.ctx.Done():
+					return
+				case in.In() <- v:
+				}
 			}
 		}
 	}()
@@ -133,11 +141,19 @@ func (m *MapFlow[IN, OUT]) ToSink(in primitives.Sink[OUT]) {
 
 	go func() {
 		defer close(in.In())
-		for v := range m.out {
+		for {
 			select {
 			case <-m.ctx.Done():
 				return
-			case in.In() <- v:
+			case v, ok := <-m.out:
+				if !ok {
+					return
+				}
+				select {
+				case <-m.ctx.Done():
+					return
+				case in.In() <- v:
+				}
 			}
 		}
 	}()
@@ -161,11 +177,14 @@ func (m *MapFlow[IN, OUT]) start() {
 func (m *MapFlow[IN, OUT]) sync() {
 	defer close(m.out)
 
-	for v := range m.in {
+	for {
 		select {
 		case <-m.ctx.Done():
 			return
-		default:
+		case v, ok := <-m.in:
+			if !ok {
+				return
+			}
 			transformed, err := m.fn(v)
 			if err != nil {
 				if m.errorHandler != nil {
@@ -195,35 +214,43 @@ func (m *MapFlow[IN, OUT]) async() {
 	hasError := atomic.Bool{}
 
 loop:
-	for v := range m.in {
+	for {
 		select {
 		case <-ctx.Done():
 			break loop
-		case semaphore <- struct{}{}:
-			wg.Add(1)
-			go func(v IN) {
-				defer func() {
-					<-semaphore
-					wg.Done()
-				}()
+		case v, ok := <-m.in:
+			if !ok {
+				break loop
+			}
+			select {
+			case <-ctx.Done():
+				break loop
+			case semaphore <- struct{}{}:
+				wg.Add(1)
+				go func(v IN) {
+					defer func() {
+						<-semaphore
+						wg.Done()
+					}()
 
-				transformed, err := m.fn(v)
-				if err != nil {
-					if !hasError.Swap(true) {
-						cancel()
-						if m.errorHandler != nil {
-							m.errorHandler(err)
+					transformed, err := m.fn(v)
+					if err != nil {
+						if !hasError.Swap(true) {
+							cancel()
+							if m.errorHandler != nil {
+								m.errorHandler(err)
+							}
 						}
+						return
 					}
-					return
-				}
 
-				select {
-				case <-ctx.Done():
-					return
-				case m.out <- transformed:
-				}
-			}(v)
+					select {
+					case <-ctx.Done():
+						return
+					case m.out <- transformed:
+					}
+				}(v)
+			}
 		}
 	}
 

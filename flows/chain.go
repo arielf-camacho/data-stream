@@ -27,11 +27,19 @@ func ToFlow[IN, OUT, NEXT any](
 ) primitives.Flow[OUT, NEXT] {
 	go func() {
 		defer close(to.In())
-		for v := range from.Out() {
+		for {
 			select {
 			case <-ctx.Done():
 				return
-			case to.In() <- v:
+			case v, ok := <-from.Out():
+				if !ok {
+					return
+				}
+				select {
+				case <-ctx.Done():
+					return
+				case to.In() <- v:
+				}
 			}
 		}
 	}()

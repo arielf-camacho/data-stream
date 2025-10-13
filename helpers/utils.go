@@ -8,16 +8,17 @@ import (
 // it. If the context is done, the function returns the collected values so far.
 func Collect[T any](ctx context.Context, source <-chan T) []T {
 	var result []T
-	for v := range source {
+	for {
 		select {
 		case <-ctx.Done():
 			return result
-		default:
+		case v, ok := <-source:
+			if !ok {
+				return result
+			}
 			result = append(result, v)
 		}
 	}
-
-	return result
 }
 
 // Drain drains the given channel until it is closed.

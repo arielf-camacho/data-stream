@@ -98,11 +98,19 @@ func (f *FilterFlow[T]) ToFlow(
 
 	go func() {
 		defer close(in.In())
-		for v := range f.out {
+		for {
 			select {
 			case <-f.ctx.Done():
 				return
-			case in.In() <- v:
+			case v, ok := <-f.out:
+				if !ok {
+					return
+				}
+				select {
+				case <-f.ctx.Done():
+					return
+				case in.In() <- v:
+				}
 			}
 		}
 	}()
@@ -115,11 +123,19 @@ func (f *FilterFlow[T]) ToSink(in primitives.Sink[T]) {
 
 	go func() {
 		defer close(in.In())
-		for v := range f.out {
+		for {
 			select {
 			case <-f.ctx.Done():
 				return
-			case in.In() <- v:
+			case v, ok := <-f.out:
+				if !ok {
+					return
+				}
+				select {
+				case <-f.ctx.Done():
+					return
+				case in.In() <- v:
+				}
 			}
 		}
 	}()
@@ -135,11 +151,14 @@ func (f *FilterFlow[T]) assertNotActive() {
 func (f *FilterFlow[T]) start() {
 	defer close(f.out)
 
-	for v := range f.in {
+	for {
 		select {
 		case <-f.ctx.Done():
 			return
-		default:
+		case v, ok := <-f.in:
+			if !ok {
+				return
+			}
 			passes, err := f.predicate(v)
 			if err != nil {
 				if f.errorHandler != nil {

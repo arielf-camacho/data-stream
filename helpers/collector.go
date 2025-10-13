@@ -47,12 +47,15 @@ func (c *Collector[T]) Items() []T {
 func (c *Collector[T]) start() {
 	defer c.wg.Done()
 
-	for v := range c.source {
+	for {
 		select {
 		case <-c.ctx.Done():
 			return
-		default:
+		case v, ok := <-c.source:
+			if !ok {
+				return
+			}
+			c.items = append(c.items, v)
 		}
-		c.items = append(c.items, v)
 	}
 }

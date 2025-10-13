@@ -84,11 +84,19 @@ func (m *MergeFlow[T]) ToFlow(in primitives.Flow[T, T]) primitives.Flow[T, T] {
 
 	go func() {
 		defer close(in.In())
-		for v := range m.out {
+		for {
 			select {
 			case <-m.ctx.Done():
 				return
-			case in.In() <- v:
+			case v, ok := <-m.out:
+				if !ok {
+					return
+				}
+				select {
+				case <-m.ctx.Done():
+					return
+				case in.In() <- v:
+				}
 			}
 		}
 	}()
@@ -101,11 +109,19 @@ func (m *MergeFlow[T]) ToSink(in primitives.Sink[T]) {
 
 	go func() {
 		defer close(in.In())
-		for v := range m.out {
+		for {
 			select {
 			case <-m.ctx.Done():
 				return
-			case in.In() <- v:
+			case v, ok := <-m.out:
+				if !ok {
+					return
+				}
+				select {
+				case <-m.ctx.Done():
+					return
+				case in.In() <- v:
+				}
 			}
 		}
 	}()
@@ -128,11 +144,19 @@ func (m *MergeFlow[T]) start() {
 		go func(from primitives.Outlet[T]) {
 			defer wg.Done()
 
-			for v := range from.Out() {
+			for {
 				select {
 				case <-m.ctx.Done():
 					return
-				case m.out <- v:
+				case v, ok := <-from.Out():
+					if !ok {
+						return
+					}
+					select {
+					case <-m.ctx.Done():
+						return
+					case m.out <- v:
+					}
 				}
 			}
 		}(from)
