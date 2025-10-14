@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/arielf-camacho/data-stream/helpers"
 	"github.com/stretchr/testify/assert"
@@ -386,6 +387,276 @@ func TestChannelSink_TypeSafety(t *testing.T) {
 
 			// Then
 			assert.ElementsMatch(t, c.expected, collected)
+		})
+	}
+}
+
+func TestChannelSink_Wait(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	items := []int{1, 2, 3, 4, 5}
+
+	cases := map[string]struct {
+		expectedCollected []int
+		expectedError     error
+		subject           func() (*ChannelSink[int], chan int, context.Context, context.CancelFunc)
+		waitFn            func(sink *ChannelSink[int]) error
+		assertFn          func(t *testing.T, collected []int, err error, expectedCollected []int, expectedError error)
+	}{
+		"waits-for-completion": {
+			expectedCollected: []int{1, 2, 3, 4, 5},
+			expectedError:     nil,
+			subject: func() (*ChannelSink[int], chan int, context.Context, context.CancelFunc) {
+				out := make(chan int, 10)
+				sink := Channel(out).BufferSize(1).Build()
+				go func() {
+					for _, item := range items {
+						sink.In() <- item
+					}
+					close(sink.In())
+				}()
+				return sink, out, ctx, nil
+			},
+			waitFn: func(sink *ChannelSink[int]) error {
+				return sink.Wait()
+			},
+			assertFn: func(t *testing.T, collected []int, err error, expectedCollected []int, expectedError error) {
+				assert.NoError(t, err)
+				assert.ElementsMatch(t, expectedCollected, collected)
+			},
+		},
+		"waits-for-empty-input": {
+			expectedCollected: []int{},
+			expectedError:     nil,
+			subject: func() (*ChannelSink[int], chan int, context.Context, context.CancelFunc) {
+				out := make(chan int, 10)
+				sink := Channel(out).BufferSize(1).Build()
+				go func() {
+					close(sink.In())
+				}()
+				return sink, out, ctx, nil
+			},
+			waitFn: func(sink *ChannelSink[int]) error {
+				return sink.Wait()
+			},
+			assertFn: func(t *testing.T, collected []int, err error, expectedCollected []int, expectedError error) {
+				assert.NoError(t, err)
+				assert.ElementsMatch(t, expectedCollected, collected)
+			},
+		},
+		"waits-for-single-value": {
+			expectedCollected: []int{42},
+			expectedError:     nil,
+			subject: func() (*ChannelSink[int], chan int, context.Context, context.CancelFunc) {
+				out := make(chan int, 10)
+				sink := Channel(out).BufferSize(1).Build()
+				go func() {
+					sink.In() <- 42
+					close(sink.In())
+				}()
+				return sink, out, ctx, nil
+			},
+			waitFn: func(sink *ChannelSink[int]) error {
+				return sink.Wait()
+			},
+			assertFn: func(t *testing.T, collected []int, err error, expectedCollected []int, expectedError error) {
+				assert.NoError(t, err)
+				assert.ElementsMatch(t, expectedCollected, collected)
+			},
+		},
+		"waits-with-buffer": {
+			expectedCollected: []int{1, 2, 3, 4, 5},
+			expectedError:     nil,
+			subject: func() (*ChannelSink[int], chan int, context.Context, context.CancelFunc) {
+				out := make(chan int, 10)
+				sink := Channel(out).BufferSize(10).Build()
+				go func() {
+					for _, item := range items {
+						sink.In() <- item
+					}
+					close(sink.In())
+				}()
+				return sink, out, ctx, nil
+			},
+			waitFn: func(sink *ChannelSink[int]) error {
+				return sink.Wait()
+			},
+			assertFn: func(t *testing.T, collected []int, err error, expectedCollected []int, expectedError error) {
+				assert.NoError(t, err)
+				assert.ElementsMatch(t, expectedCollected, collected)
+			},
+		},
+		"waits-until-cancelled-before-processing": {
+			expectedCollected: []int{},
+			expectedError:     nil,
+			subject: func() (*ChannelSink[int], chan int, context.Context, context.CancelFunc) {
+				out := make(chan int, 10)
+				ctx, cancel := context.WithCancel(context.Background())
+				cancel() // Cancel immediately
+				sink := Channel(out).Context(ctx).Build()
+				go func() {
+					for _, item := range items {
+						sink.In() <- item
+					}
+					close(sink.In())
+				}()
+				return sink, out, ctx, cancel
+			},
+			waitFn: func(sink *ChannelSink[int]) error {
+				return sink.Wait()
+			},
+			assertFn: func(t *testing.T, collected []int, err error, expectedCollected []int, expectedError error) {
+				assert.NoError(t, err)
+				assert.Empty(t, collected)
+			},
+		},
+		"waits-until-cancelled-during-processing": {
+			expectedCollected: []int{1, 2}, // Should collect some values before cancellation
+			expectedError:     nil,
+			subject: func() (*ChannelSink[int], chan int, context.Context, context.CancelFunc) {
+				out := make(chan int, 10)
+				ctx, cancel := context.WithCancel(context.Background())
+				sink := Channel(out).Context(ctx).BufferSize(1).Build()
+				go func() {
+					for i, item := range items {
+						sink.In() <- item
+						if i == 1 {
+							cancel()
+						}
+					}
+					close(sink.In())
+				}()
+				return sink, out, ctx, cancel
+			},
+			waitFn: func(sink *ChannelSink[int]) error {
+				return sink.Wait()
+			},
+			assertFn: func(t *testing.T, collected []int, err error, expectedCollected []int, expectedError error) {
+				assert.NoError(t, err)
+				assert.Subset(t, expectedCollected, collected)
+			},
+		},
+		"waits-blocks-until-completion": {
+			expectedCollected: []int{1, 2, 3, 4, 5},
+			expectedError:     nil,
+			subject: func() (*ChannelSink[int], chan int, context.Context, context.CancelFunc) {
+				out := make(chan int, 10)
+				sink := Channel(out).BufferSize(1).Build()
+				go func() {
+					for _, item := range items {
+						sink.In() <- item
+						time.Sleep(10 * time.Millisecond) // Simulate some processing time
+					}
+					time.Sleep(10 * time.Millisecond)
+					close(sink.In())
+				}()
+				return sink, out, ctx, nil
+			},
+			waitFn: func(sink *ChannelSink[int]) error {
+				start := time.Now()
+				err := sink.Wait()
+				elapsed := time.Since(start)
+				assert.Greater(t, elapsed, 0*time.Millisecond) // Should take some time
+				return err
+			},
+			assertFn: func(t *testing.T, collected []int, err error, expectedCollected []int, expectedError error) {
+				assert.NoError(t, err)
+				assert.ElementsMatch(t, expectedCollected, collected)
+			},
+		},
+		"waits-multiple-calls": {
+			expectedCollected: []int{1, 2, 3},
+			expectedError:     nil,
+			subject: func() (*ChannelSink[int], chan int, context.Context, context.CancelFunc) {
+				out := make(chan int, 10)
+				sink := Channel(out).BufferSize(1).Build()
+				go func() {
+					for _, item := range []int{1, 2, 3} {
+						sink.In() <- item
+					}
+					close(sink.In())
+				}()
+				return sink, out, ctx, nil
+			},
+			waitFn: func(sink *ChannelSink[int]) error {
+				// Multiple Wait calls should all succeed
+				err1 := sink.Wait()
+				err2 := sink.Wait()
+				err3 := sink.Wait()
+				assert.NoError(t, err1)
+				assert.NoError(t, err2)
+				assert.NoError(t, err3)
+				return err1
+			},
+			assertFn: func(t *testing.T, collected []int, err error, expectedCollected []int, expectedError error) {
+				assert.NoError(t, err)
+				assert.ElementsMatch(t, expectedCollected, collected)
+			},
+		},
+		"waits-concurrent-access": {
+			expectedCollected: []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+			expectedError:     nil,
+			subject: func() (*ChannelSink[int], chan int, context.Context, context.CancelFunc) {
+				out := make(chan int, 20)
+				sink := Channel(out).BufferSize(10).Build()
+				items := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+				var wg sync.WaitGroup
+
+				// Start multiple goroutines sending data concurrently
+				for _, item := range items {
+					wg.Add(1)
+					go func(val int) {
+						defer wg.Done()
+						sink.In() <- val
+					}(item)
+				}
+
+				// Start a goroutine to close the input channel when all data is sent
+				go func() {
+					wg.Wait()
+					close(sink.In())
+				}()
+				return sink, out, ctx, nil
+			},
+			waitFn: func(sink *ChannelSink[int]) error {
+				return sink.Wait()
+			},
+			assertFn: func(t *testing.T, collected []int, err error, expectedCollected []int, expectedError error) {
+				assert.NoError(t, err)
+				assert.ElementsMatch(t, expectedCollected, collected)
+			},
+		},
+	}
+
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Given
+			sink, out, ctx, _ := c.subject()
+
+			// When
+			var collected []int
+			var wg sync.WaitGroup
+			wg.Add(1)
+
+			go func() {
+				defer wg.Done()
+				if ctx.Done() != nil {
+					collected = helpers.Collect(ctx, out)
+				} else {
+					for i := 0; i < len(c.expectedCollected); i++ {
+						collected = append(collected, <-out)
+					}
+				}
+			}()
+
+			err := c.waitFn(sink)
+			wg.Wait()
+
+			// Then
+			c.assertFn(t, collected, err, c.expectedCollected, c.expectedError)
 		})
 	}
 }
