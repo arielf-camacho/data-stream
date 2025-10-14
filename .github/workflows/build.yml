@@ -1,0 +1,73 @@
+name: Build
+
+on:
+  pull_request:
+    branches:
+      - main
+      - master
+
+jobs:
+  tests:
+    strategy:
+      matrix:
+        go-version: [1.24.4]
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Install Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Prepare HTTPS verification
+        env:
+          USERNAME: ${{ secrets.USERNAME }}
+          PAT: ${{ secrets.PAT }}
+        run: echo "machine github.com login $USERNAME password $PAT" > ~/.netrc
+
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup project
+        run: make init
+
+      - name: Lint code
+        run: make lint
+
+      - name: Run tests and measure coverage
+        env:
+          EXPECTED_COVERAGE: ${{ vars.EXPECTED_COVERAGE }}
+        run: |
+          go get github.com/ericchiang/pup
+          go install github.com/ericchiang/pup
+
+          echo "----------------------------------------------------------------"
+          echo " ✅ Testing with coverage, expected: $EXPECTED_COVERAGE%..."
+          echo "----------------------------------------------------------------"
+          make coverage/html
+          s=$(cat coverage.html | pup "div#totalcov text{}")
+          perc=$(echo "$s" | grep -o '[0-9\.]*%' | sed 's/%//')
+          echo "$perc >= $EXPECTED_COVERAGE" | bc > .cov_success.out
+          echo $perc > .coverage.out
+
+      - name: Store Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: |
+            coverage.html
+
+      - name: Fail build if insufficient coverage
+        run: |
+          AC=$(cat .cov_success.out)
+          COVERAGE=$(cat .coverage.out)
+          test "$AC" -eq 1 && \
+          echo "----------------------------------------------------------------" && \
+          echo " 🎉 Surpassed the coverage threshold: $COVERAGE%..."               && \
+          echo "----------------------------------------------------------------" && \
+          exit 0
+
+          echo "----------------------------------------------------------------"
+          echo " ❌ Insufficient coverage: $COVERAGE%..."
+          echo "----------------------------------------------------------------"
+          exit 1
