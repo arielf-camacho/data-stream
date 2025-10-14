@@ -135,10 +135,11 @@ Data transformation operators that process values:
 
 Data consumers that receive values from the stream:
 
-| Component       | Description                      | Documentation                                  |
-| --------------- | -------------------------------- | ---------------------------------------------- |
-| **ChannelSink** | Writes values to a Go channel    | [docs/sinks/channel.md](docs/sinks/channel.md) |
-| **WriterSink**  | Writes byte data to an io.Writer | [docs/sinks/writer.md](docs/sinks/writer.md)   |
+| Component       | Description                       | Documentation                                  |
+| --------------- | --------------------------------- | ---------------------------------------------- |
+| **ChannelSink** | Writes values to a Go channel     | [docs/sinks/channel.md](docs/sinks/channel.md) |
+| **WriterSink**  | Writes byte data to an io.Writer  | [docs/sinks/writer.md](docs/sinks/writer.md)   |
+| **ReduceSink**  | Reduces values to a single result | [docs/sinks/reduce.md](docs/sinks/reduce.md)   |
 
 ## Examples
 
