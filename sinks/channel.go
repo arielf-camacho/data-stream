@@ -2,11 +2,12 @@ package sinks
 
 import (
 	"context"
+	"sync"
 
 	"github.com/arielf-camacho/data-stream/primitives"
 )
 
-var _ = primitives.Sink[any](&ChannelSink[any]{})
+var _ = primitives.WaitableSink[any](&ChannelSink[any]{})
 
 // ChannelSink is a sink that writes the values to a channel.
 //
@@ -16,11 +17,11 @@ var _ = primitives.Sink[any](&ChannelSink[any]{})
 // -- ChannelSink --
 // -> 1 -- 2 -- 3 -- 4 -- 5 -- |
 type ChannelSink[T any] struct {
+	ctx context.Context
+	wg  sync.WaitGroup
+
 	in  chan T
 	out chan T
-
-	ctx        context.Context
-	bufferSize uint
 }
 
 // ChannelSinkBuilder is a fluent builder for ChannelSink.
@@ -55,24 +56,32 @@ func (b *ChannelSinkBuilder[T]) BufferSize(size uint) *ChannelSinkBuilder[T] {
 // Build creates and starts the ChannelSink.
 func (b *ChannelSinkBuilder[T]) Build() *ChannelSink[T] {
 	ch := &ChannelSink[T]{
-		out:        b.out,
-		ctx:        b.ctx,
-		bufferSize: b.bufferSize,
+		out: b.out,
+		ctx: b.ctx,
+		in:  make(chan T, b.bufferSize),
 	}
-
-	ch.in = make(chan T, ch.bufferSize)
-
+	ch.wg.Add(1)
 	go ch.start()
 
 	return ch
 }
 
+// In returns the channel from which the values can be read.
 func (c *ChannelSink[T]) In() chan<- T {
 	return c.in
 }
 
+// Wait waits for the ChannelSink to finish passing all values to the output
+// channel.
+func (c *ChannelSink[T]) Wait() error {
+	c.wg.Wait()
+
+	return nil
+}
+
 func (c *ChannelSink[T]) start() {
 	defer close(c.out)
+	defer c.wg.Done()
 
 	for {
 		select {

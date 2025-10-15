@@ -171,6 +171,11 @@ pipeline.
 3. Run `make all` to ensure code quality
 4. Submit a pull request
 
+## Changelog
+
+See [CHANGELOG.md](docs/CHANGELOG.md) for a detailed list of changes and
+releases.
+
 ## License
 
 This project is licensed under the MIT License.

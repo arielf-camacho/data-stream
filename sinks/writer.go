@@ -3,11 +3,13 @@ package sinks
 import (
 	"context"
 	"io"
+	"sync"
 
 	"github.com/arielf-camacho/data-stream/primitives"
 )
 
 var _ = primitives.Sink[[]byte](&WriterSink{})
+var _ = primitives.WaitableSink[[]byte](&WriterSink{})
 
 // WriterSink is a sink that writes the values to a
 // io.WriterSink.
@@ -22,6 +24,7 @@ type WriterSink struct {
 	bufferSize   uint
 	errorHandler func(error)
 	writer       io.Writer
+	wg           sync.WaitGroup
 
 	in chan []byte
 }
@@ -73,6 +76,7 @@ func (b *WriterSinkBuilder) Build() *WriterSink {
 
 	writer.in = make(chan []byte, writer.bufferSize)
 
+	writer.wg.Add(1)
 	go writer.start()
 
 	return writer
@@ -82,7 +86,15 @@ func (w *WriterSink) In() chan<- []byte {
 	return w.in
 }
 
+// Wait waits for the WriterSink to finish processing all values.
+func (w *WriterSink) Wait() error {
+	w.wg.Wait()
+	return nil
+}
+
 func (w *WriterSink) start() {
+	defer w.wg.Done()
+
 	for {
 		select {
 		case <-w.ctx.Done():
