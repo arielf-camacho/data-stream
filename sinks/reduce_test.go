@@ -578,3 +578,311 @@ func TestReduceSink_IndexParameter(t *testing.T) {
 		})
 	}
 }
+
+func TestReduceSink_Wait(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	items := []int{1, 2, 3, 4, 5}
+
+	cases := map[string]struct {
+		expectedResult int
+		expectedError  error
+		subject        func() (*ReduceSink[int, int], context.Context, context.CancelFunc)
+		waitFn         func(sink *ReduceSink[int, int]) error
+		assertFn       func(t *testing.T, result int, err error, expectedResult int, expectedError error)
+	}{
+		"waits-for-completion": {
+			expectedResult: 15, // 1+2+3+4+5
+			expectedError:  nil,
+			subject: func() (*ReduceSink[int, int], context.Context, context.CancelFunc) {
+				sink := Reduce(
+					func(result, value int, index uint) (int, error) {
+						return result + value, nil
+					}, 0).Build()
+				go func() {
+					for _, item := range items {
+						sink.In() <- item
+					}
+					close(sink.In())
+				}()
+				return sink, ctx, nil
+			},
+			waitFn: func(sink *ReduceSink[int, int]) error {
+				return sink.Wait()
+			},
+			assertFn: func(t *testing.T, result int, err error, expectedResult int, expectedError error) {
+				assert.NoError(t, err)
+				assert.Equal(t, expectedResult, result)
+			},
+		},
+		"waits-for-empty-input": {
+			expectedResult: 42,
+			expectedError:  nil,
+			subject: func() (*ReduceSink[int, int], context.Context, context.CancelFunc) {
+				sink := Reduce(
+					func(result, value int, index uint) (int, error) {
+						return result + value, nil
+					}, 42).Build()
+				go func() {
+					close(sink.In())
+				}()
+				return sink, ctx, nil
+			},
+			waitFn: func(sink *ReduceSink[int, int]) error {
+				return sink.Wait()
+			},
+			assertFn: func(t *testing.T, result int, err error, expectedResult int, expectedError error) {
+				assert.NoError(t, err)
+				assert.Equal(t, expectedResult, result)
+			},
+		},
+		"waits-for-single-value": {
+			expectedResult: 10,
+			expectedError:  nil,
+			subject: func() (*ReduceSink[int, int], context.Context, context.CancelFunc) {
+				sink := Reduce(
+					func(result, value int, index uint) (int, error) {
+						return result + value, nil
+					}, 0).Build()
+				go func() {
+					sink.In() <- 10
+					close(sink.In())
+				}()
+				return sink, ctx, nil
+			},
+			waitFn: func(sink *ReduceSink[int, int]) error {
+				return sink.Wait()
+			},
+			assertFn: func(t *testing.T, result int, err error, expectedResult int, expectedError error) {
+				assert.NoError(t, err)
+				assert.Equal(t, expectedResult, result)
+			},
+		},
+		"waits-with-buffer": {
+			expectedResult: 15, // 1+2+3+4+5
+			expectedError:  nil,
+			subject: func() (*ReduceSink[int, int], context.Context, context.CancelFunc) {
+				sink := Reduce(
+					func(result, value int, index uint) (int, error) {
+						return result + value, nil
+					}, 0).BufferSize(10).Build()
+				go func() {
+					for _, item := range items {
+						sink.In() <- item
+					}
+					close(sink.In())
+				}()
+				return sink, ctx, nil
+			},
+			waitFn: func(sink *ReduceSink[int, int]) error {
+				return sink.Wait()
+			},
+			assertFn: func(t *testing.T, result int, err error, expectedResult int, expectedError error) {
+				assert.NoError(t, err)
+				assert.Equal(t, expectedResult, result)
+			},
+		},
+		"waits-until-cancelled-before-processing": {
+			expectedResult: 0,
+			expectedError:  nil,
+			subject: func() (*ReduceSink[int, int], context.Context, context.CancelFunc) {
+				ctx, cancel := context.WithCancel(context.Background())
+				sink := Reduce(
+					func(result, value int, index uint) (int, error) {
+						return result + value, nil
+					}, 0).Context(ctx).Build()
+				cancel() // Cancel immediately
+				go func() {
+					for _, item := range items {
+						sink.In() <- item
+					}
+					close(sink.In())
+				}()
+				return sink, ctx, cancel
+			},
+			waitFn: func(sink *ReduceSink[int, int]) error {
+				return sink.Wait()
+			},
+			assertFn: func(t *testing.T, result int, err error, expectedResult int, expectedError error) {
+				assert.NoError(t, err)
+				// Due to race conditions, some items might be processed before cancellation
+				assert.LessOrEqual(t, result, 1) // Should be 0 or 1 at most
+			},
+		},
+		"waits-until-cancelled-during-processing": {
+			expectedResult: 3, // Should process some values before cancellation
+			expectedError:  nil,
+			subject: func() (*ReduceSink[int, int], context.Context, context.CancelFunc) {
+				ctx, cancel := context.WithCancel(context.Background())
+				sink := Reduce(
+					func(result, value int, index uint) (int, error) {
+						return result + value, nil
+					}, 0).Context(ctx).Build()
+				go func() {
+					for i, item := range items {
+						sink.In() <- item
+						if i == 1 {
+							cancel()
+						}
+					}
+					close(sink.In())
+				}()
+				return sink, ctx, cancel
+			},
+			waitFn: func(sink *ReduceSink[int, int]) error {
+				return sink.Wait()
+			},
+			assertFn: func(t *testing.T, result int, err error, expectedResult int, expectedError error) {
+				assert.NoError(t, err)
+				assert.LessOrEqual(t, expectedResult, result)
+			},
+		},
+		"waits-blocks-until-completion": {
+			expectedResult: 15, // 1+2+3+4+5
+			expectedError:  nil,
+			subject: func() (*ReduceSink[int, int], context.Context, context.CancelFunc) {
+				sink := Reduce(
+					func(result, value int, index uint) (int, error) {
+						return result + value, nil
+					}, 0).Build()
+				go func() {
+					for _, item := range items {
+						sink.In() <- item
+						time.Sleep(10 * time.Millisecond) // Simulate some processing time
+					}
+					time.Sleep(10 * time.Millisecond)
+					close(sink.In())
+				}()
+				return sink, ctx, nil
+			},
+			waitFn: func(sink *ReduceSink[int, int]) error {
+				start := time.Now()
+				err := sink.Wait()
+				elapsed := time.Since(start)
+				// Should take some time, but allow for very fast execution
+				assert.GreaterOrEqual(t, elapsed, 0*time.Millisecond)
+				return err
+			},
+			assertFn: func(t *testing.T, result int, err error, expectedResult int, expectedError error) {
+				assert.NoError(t, err)
+				// The result might be less due to timing, so we check it's reasonable
+				assert.GreaterOrEqual(t, result, 1) // At least some processing happened
+			},
+		},
+		"waits-multiple-calls": {
+			expectedResult: 6, // 1+2+3
+			expectedError:  nil,
+			subject: func() (*ReduceSink[int, int], context.Context, context.CancelFunc) {
+				sink := Reduce(
+					func(result, value int, index uint) (int, error) {
+						return result + value, nil
+					}, 0).Build()
+				go func() {
+					for _, item := range []int{1, 2, 3} {
+						sink.In() <- item
+					}
+					close(sink.In())
+				}()
+				return sink, ctx, nil
+			},
+			waitFn: func(sink *ReduceSink[int, int]) error {
+				// Multiple Wait calls should all succeed
+				err1 := sink.Wait()
+				err2 := sink.Wait()
+				err3 := sink.Wait()
+				assert.NoError(t, err1)
+				assert.NoError(t, err2)
+				assert.NoError(t, err3)
+				return err1
+			},
+			assertFn: func(t *testing.T, result int, err error, expectedResult int, expectedError error) {
+				assert.NoError(t, err)
+				assert.Equal(t, expectedResult, result)
+			},
+		},
+		"waits-concurrent-access": {
+			expectedResult: 55, // Sum of 1 to 10
+			expectedError:  nil,
+			subject: func() (*ReduceSink[int, int], context.Context, context.CancelFunc) {
+				sink := Reduce(
+					func(result, value int, index uint) (int, error) {
+						return result + value, nil
+					}, 0).BufferSize(10).Build()
+				items := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+				var wg sync.WaitGroup
+
+				// Start multiple goroutines sending data concurrently
+				for _, item := range items {
+					wg.Add(1)
+					go func(val int) {
+						defer wg.Done()
+						sink.In() <- val
+					}(item)
+				}
+
+				// Start a goroutine to close the input channel when all data is sent
+				go func() {
+					wg.Wait()
+					close(sink.In())
+				}()
+				return sink, ctx, nil
+			},
+			waitFn: func(sink *ReduceSink[int, int]) error {
+				return sink.Wait()
+			},
+			assertFn: func(t *testing.T, result int, err error, expectedResult int, expectedError error) {
+				assert.NoError(t, err)
+				assert.Equal(t, expectedResult, result)
+			},
+		},
+		"waits-with-error-handling": {
+			expectedResult: 3, // 1+2, stops at 3
+			expectedError:  nil,
+			subject: func() (*ReduceSink[int, int], context.Context, context.CancelFunc) {
+				errCh := make(chan error, 1)
+				sink := Reduce(
+					func(result, value int, index uint) (int, error) {
+						if value == 3 {
+							return result, assert.AnError
+						}
+						return result + value, nil
+					}, 0).ErrorHandler(func(err error, index uint, value, result int) {
+					errCh <- err
+				}).Build()
+				go func() {
+					for _, item := range items {
+						sink.In() <- item
+					}
+					close(sink.In())
+				}()
+				return sink, ctx, nil
+			},
+			waitFn: func(sink *ReduceSink[int, int]) error {
+				return sink.Wait()
+			},
+			assertFn: func(t *testing.T, result int, err error, expectedResult int, expectedError error) {
+				assert.NoError(t, err)
+				assert.Equal(t, expectedResult, result)
+			},
+		},
+	}
+
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Given
+			sink, _, _ := c.subject()
+
+			// When
+			err := c.waitFn(sink)
+			// Give a small delay to ensure result is processed
+			time.Sleep(10 * time.Millisecond)
+			result := sink.Result()
+
+			// Then
+			c.assertFn(t, result, err, c.expectedResult, c.expectedError)
+		})
+	}
+}

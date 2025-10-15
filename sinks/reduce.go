@@ -9,6 +9,7 @@ import (
 )
 
 var _ = primitives.Sink[int](&ReduceSink[int, any]{})
+var _ = primitives.WaitableSink[int](&ReduceSink[int, any]{})
 
 // ReduceSink is a sink that reduces the values from the input channel to a
 // single value using the given reduce function.
@@ -26,6 +27,7 @@ type ReduceSink[IN, OUT any] struct {
 	mu           sync.RWMutex
 	errorHandler func(error, uint, IN, OUT)
 	fn           func(result OUT, value IN, index uint) (OUT, error)
+	wg           sync.WaitGroup
 
 	in     chan IN
 	result OUT
@@ -92,6 +94,7 @@ func (b *ReduceSinkBuilder[IN, OUT]) Build() *ReduceSink[IN, OUT] {
 
 	sink.in = make(chan IN, sink.bufferSize)
 
+	sink.wg.Add(1)
 	go sink.start()
 
 	return sink
@@ -109,8 +112,16 @@ func (s *ReduceSink[IN, OUT]) Result() OUT {
 	return s.result
 }
 
+// Wait waits for the ReduceSink to finish processing all values.
+func (s *ReduceSink[IN, OUT]) Wait() error {
+	s.wg.Wait()
+	return nil
+}
+
 // start starts the ReduceSink.
 func (s *ReduceSink[IN, OUT]) start() {
+	defer s.wg.Done()
+
 	index := uint(0)
 
 	for {
