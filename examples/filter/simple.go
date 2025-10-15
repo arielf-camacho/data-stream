@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	outputCh := make(chan int)
+	outputCh := make(chan int, 10)
 
 	sink := sinks.Channel(outputCh).Build()
 
@@ -23,12 +23,11 @@ func main() {
 	filter2 := flows.Filter(onlyEvens).Build()
 	source2.ToFlow(filter2)
 
-	merge := flows.
-		Merge(filter1, filter2).
-		BufferSize(10).
-		Build()
+	merge := flows.Merge(filter1, filter2).BufferSize(10).Build()
 
 	merge.ToSink(sink)
+
+	_ = sink.Wait()
 
 	for v := range outputCh {
 		fmt.Println("value:", v)

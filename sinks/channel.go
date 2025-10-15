@@ -60,6 +60,7 @@ func (b *ChannelSinkBuilder[T]) Build() *ChannelSink[T] {
 		ctx: b.ctx,
 		in:  make(chan T, b.bufferSize),
 	}
+	ch.wg.Add(1)
 	go ch.start()
 
 	return ch
@@ -81,8 +82,6 @@ func (c *ChannelSink[T]) Wait() error {
 func (c *ChannelSink[T]) start() {
 	defer close(c.out)
 	defer c.wg.Done()
-
-	c.wg.Add(1)
 
 	for {
 		select {
