@@ -92,7 +92,7 @@ func TestChannelSink_In(t *testing.T) {
 
 			go func() {
 				defer wg.Done()
-				for i := 0; i < len(c.expected); i++ {
+				for range c.expected {
 					collected = append(collected, <-out)
 				}
 			}()
@@ -256,7 +256,7 @@ func TestChannelSink_BuilderPattern(t *testing.T) {
 
 			go func() {
 				defer wg.Done()
-				for i := 0; i < len(c.expected); i++ {
+				for range c.expected {
 					collected = append(collected, <-out)
 				}
 			}()
@@ -332,7 +332,7 @@ func TestChannelSink_ConcurrentAccess(t *testing.T) {
 
 			go func() {
 				defer wg.Done()
-				for i := 0; i < len(c.expected); i++ {
+				for range c.expected {
 					collected = append(collected, <-out)
 				}
 			}()
@@ -384,7 +384,7 @@ func TestChannelSink_TypeSafety(t *testing.T) {
 
 			go func() {
 				defer wg.Done()
-				for i := 0; i < len(c.expected); i++ {
+				for range c.expected {
 					collected = append(collected, <-out)
 				}
 			}()
@@ -742,7 +742,7 @@ func TestChannelSink_Wait(t *testing.T) {
 				if ctx.Done() != nil {
 					collected = helpers.Collect(ctx, out)
 				} else {
-					for i := 0; i < len(c.expectedCollected); i++ {
+					for range c.expectedCollected {
 						collected = append(collected, <-out)
 					}
 				}
