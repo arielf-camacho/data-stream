@@ -5,6 +5,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/arielf-camacho/data-stream/helpers"
 	"github.com/arielf-camacho/data-stream/primitives"
 )
 
@@ -113,50 +114,13 @@ func (m *MapFlow[IN, OUT]) ToFlow(
 	in primitives.Flow[OUT, OUT],
 ) primitives.Flow[OUT, OUT] {
 	m.assertNotActive()
-
-	go func() {
-		defer close(in.In())
-		for {
-			select {
-			case <-m.ctx.Done():
-				return
-			case v, ok := <-m.out:
-				if !ok {
-					return
-				}
-				select {
-				case <-m.ctx.Done():
-					return
-				case in.In() <- v:
-				}
-			}
-		}
-	}()
-
+	helpers.StreamTo(m.ctx, m.out, in.In())
 	return in
 }
 
 func (m *MapFlow[IN, OUT]) ToSink(in primitives.Sink[OUT]) {
 	m.assertNotActive()
-
-	go func() {
-		defer close(in.In())
-		for {
-			select {
-			case <-m.ctx.Done():
-				return
-			case v, ok := <-m.out:
-				if !ok {
-					return
-				}
-				select {
-				case <-m.ctx.Done():
-					return
-				case in.In() <- v:
-				}
-			}
-		}
-	}()
+	helpers.StreamTo(m.ctx, m.out, in.In())
 }
 
 func (m *MapFlow[IN, OUT]) assertNotActive() {

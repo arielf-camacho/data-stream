@@ -2,7 +2,6 @@ package sinks
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -171,7 +170,6 @@ func TestReduceSink_ContextCancellation(t *testing.T) {
 							cancel()
 						}
 					}
-					fmt.Println("sent all items")
 				}()
 				return sink, ctx, cancel
 			},

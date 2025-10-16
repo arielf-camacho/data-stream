@@ -2,7 +2,6 @@ package sinks
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/arielf-camacho/data-stream/primitives"
@@ -127,7 +126,6 @@ func (s *ReduceSink[IN, OUT]) start() {
 	for {
 		select {
 		case <-s.ctx.Done():
-			fmt.Println("context cancelled")
 			return
 		case v, ok := <-s.in:
 			if !ok {

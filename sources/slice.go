@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync/atomic"
 
+	"github.com/arielf-camacho/data-stream/helpers"
 	"github.com/arielf-camacho/data-stream/primitives"
 )
 
@@ -85,26 +86,7 @@ func (s *SliceSource[T]) ToFlow(
 	in primitives.Flow[T, T],
 ) primitives.Flow[T, T] {
 	s.assertNotActive()
-
-	go func() {
-		defer close(in.In())
-		for {
-			select {
-			case <-s.ctx.Done():
-				return
-			case v, ok := <-s.out:
-				if !ok {
-					return
-				}
-				select {
-				case <-s.ctx.Done():
-					return
-				case in.In() <- v:
-				}
-			}
-		}
-	}()
-
+	helpers.StreamTo(s.ctx, s.out, in.In())
 	return in
 }
 
@@ -112,26 +94,7 @@ func (s *SliceSource[T]) ToFlow(
 // exclusive with ToFlow, either one must be called.
 func (s *SliceSource[T]) ToSink(in primitives.Sink[T]) primitives.Sink[T] {
 	s.assertNotActive()
-
-	go func() {
-		defer close(in.In())
-		for {
-			select {
-			case <-s.ctx.Done():
-				return
-			case v, ok := <-s.out:
-				if !ok {
-					return
-				}
-				select {
-				case <-s.ctx.Done():
-					return
-				case in.In() <- v:
-				}
-			}
-		}
-	}()
-
+	helpers.StreamTo(s.ctx, s.out, in.In())
 	return in
 }
 

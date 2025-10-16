@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync/atomic"
 
+	"github.com/arielf-camacho/data-stream/helpers"
 	"github.com/arielf-camacho/data-stream/primitives"
 )
 
@@ -95,50 +96,13 @@ func (f *FilterFlow[T]) ToFlow(
 	in primitives.Flow[T, T],
 ) primitives.Flow[T, T] {
 	f.assertNotActive()
-
-	go func() {
-		defer close(in.In())
-		for {
-			select {
-			case <-f.ctx.Done():
-				return
-			case v, ok := <-f.out:
-				if !ok {
-					return
-				}
-				select {
-				case <-f.ctx.Done():
-					return
-				case in.In() <- v:
-				}
-			}
-		}
-	}()
-
+	helpers.StreamTo(f.ctx, f.out, in.In())
 	return in
 }
 
 func (f *FilterFlow[T]) ToSink(in primitives.Sink[T]) {
 	f.assertNotActive()
-
-	go func() {
-		defer close(in.In())
-		for {
-			select {
-			case <-f.ctx.Done():
-				return
-			case v, ok := <-f.out:
-				if !ok {
-					return
-				}
-				select {
-				case <-f.ctx.Done():
-					return
-				case in.In() <- v:
-				}
-			}
-		}
-	}()
+	helpers.StreamTo(f.ctx, f.out, in.In())
 }
 
 func (f *FilterFlow[T]) assertNotActive() {
