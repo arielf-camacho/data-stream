@@ -5,6 +5,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/arielf-camacho/data-stream/helpers"
 	"github.com/arielf-camacho/data-stream/primitives"
 )
 
@@ -81,50 +82,13 @@ func (m *MergeFlow[T]) Out() <-chan T {
 
 func (m *MergeFlow[T]) ToFlow(in primitives.Flow[T, T]) primitives.Flow[T, T] {
 	m.assertNotActive()
-
-	go func() {
-		defer close(in.In())
-		for {
-			select {
-			case <-m.ctx.Done():
-				return
-			case v, ok := <-m.out:
-				if !ok {
-					return
-				}
-				select {
-				case <-m.ctx.Done():
-					return
-				case in.In() <- v:
-				}
-			}
-		}
-	}()
-
+	helpers.StreamTo(m.ctx, m.out, in.In())
 	return in
 }
 
 func (m *MergeFlow[T]) ToSink(in primitives.Sink[T]) {
 	m.assertNotActive()
-
-	go func() {
-		defer close(in.In())
-		for {
-			select {
-			case <-m.ctx.Done():
-				return
-			case v, ok := <-m.out:
-				if !ok {
-					return
-				}
-				select {
-				case <-m.ctx.Done():
-					return
-				case in.In() <- v:
-				}
-			}
-		}
-	}()
+	helpers.StreamTo(m.ctx, m.out, in.In())
 }
 
 func (m *MergeFlow[T]) assertNotActive() {
