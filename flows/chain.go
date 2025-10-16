@@ -3,6 +3,7 @@ package flows
 import (
 	"context"
 
+	"github.com/arielf-camacho/data-stream/helpers"
 	"github.com/arielf-camacho/data-stream/primitives"
 )
 
@@ -25,24 +26,6 @@ func ToFlow[IN, OUT, NEXT any](
 	from primitives.Flow[IN, OUT],
 	to primitives.Flow[OUT, NEXT],
 ) primitives.Flow[OUT, NEXT] {
-	go func() {
-		defer close(to.In())
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case v, ok := <-from.Out():
-				if !ok {
-					return
-				}
-				select {
-				case <-ctx.Done():
-					return
-				case to.In() <- v:
-				}
-			}
-		}
-	}()
-
+	helpers.StreamTo(ctx, from.Out(), to.In())
 	return to
 }
