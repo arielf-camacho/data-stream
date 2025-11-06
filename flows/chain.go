@@ -29,3 +29,26 @@ func ToFlow[IN, OUT, NEXT any](
 	helpers.StreamTo(ctx, from.Out(), to.In())
 	return to
 }
+
+// SourceToFlow passes the values from the source to the flow. This is a utility
+// function that can be used to chain which types differ. In you have a source
+// compatible with Source[int], and you want to chain it with a flow
+// compatible with Flow[int, string], you can use this function to chain
+// them together, as the own ToFlow() method of the Source[int] will not
+// work because of compiler type constraints.
+//
+//		Example of usage:
+//
+//		source := sources.Single(func() (int, error) { return 1, nil }).Build()
+//		flow := flows.Map(func(x int) (string, error) { return strconv.Itoa(x), nil }).Build()
+//		flows.SourceToFlow(context.Background(), source, flow)
+//
+//	  source.ToFlow(flow) // will not work because of compiler type constraints
+func SourceToFlow[IN, OUT any](
+	ctx context.Context,
+	source primitives.Source[IN],
+	flow primitives.Flow[IN, OUT],
+) primitives.Flow[IN, OUT] {
+	helpers.StreamTo(ctx, source.Out(), flow.In())
+	return flow
+}

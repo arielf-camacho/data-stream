@@ -8,6 +8,7 @@ import (
 	"github.com/arielf-camacho/data-stream/flows"
 	"github.com/arielf-camacho/data-stream/helpers"
 	"github.com/arielf-camacho/data-stream/primitives"
+	"github.com/arielf-camacho/data-stream/sources"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -187,283 +188,200 @@ func TestToFlow_Chaining(t *testing.T) {
 	}
 }
 
-// func TestToFlow_ContextCancellation(t *testing.T) {
-// 	t.Parallel()
+func TestSourceToFlow_Chaining(t *testing.T) {
+	t.Parallel()
 
-// 	items := []int{1, 2, 3, 4, 5}
+	ctx := context.Background()
+	items := []int{1, 2, 3, 4, 5}
 
-// 	cases := map[string]struct {
-// 		expectedCollected []string
-// 		subject           func() (primitives.Flow[string, string], context.Context, context.CancelFunc)
-// 	}{
-// 		"cancelled-before-processing": {
-// 			expectedCollected: []string{},
-// 			subject: func() (primitives.Flow[string, string], context.Context, context.CancelFunc) {
-// 				ctx, cancel := context.WithCancel(context.Background())
+	cases := map[string]struct {
+		expected []string
+		subject  func() (primitives.Flow[int, string], context.Context)
+	}{
+		"chains-slice-source-to-string-flow": {
+			expected: []string{"num:1", "num:2", "num:3", "num:4", "num:5"},
+			subject: func() (primitives.Flow[int, string], context.Context) {
+				// Source: int slice
+				source := sources.Slice(items).Build()
 
-// 				// First flow: int -> string
-// 				from := flows.Map(func(x int) (string, error) {
-// 					return strconv.Itoa(x), nil
-// 				}).Build()
+				// Flow: int -> string (adds prefix)
+				flow := flows.
+					Map(func(x int) (string, error) {
+						return "num:" + strconv.Itoa(x), nil
+					}).
+					Build()
 
-// 				// Second flow: string -> string
-// 				to := flows.Map(func(x string) (string, error) {
-// 					return "processed:" + x, nil
-// 				}).Build()
+				// Chain source to flow using SourceToFlow utility
+				flows.SourceToFlow(ctx, source, flow)
 
-// 				// Chain them using ToFlow utility
-// 				flows.ToFlow(ctx, from, to)
+				return flow, ctx
+			},
+		},
+		"chains-single-source-to-string-flow": {
+			expected: []string{"value:42"},
+			subject: func() (primitives.Flow[int, string], context.Context) {
+				// Source: single int value
+				source := sources.
+					Single(func() (int, error) { return 42, nil }).
+					Build()
 
-// 				// Cancel immediately
-// 				cancel()
+				// Flow: int -> string
+				flow := flows.
+					Map(func(x int) (string, error) {
+						return "value:" + strconv.Itoa(x), nil
+					}).
+					Build()
 
-// 				// Feed input to first flow
-// 				go func() {
-// 					for _, item := range items {
-// 						from.In() <- item
-// 					}
-// 					close(from.In())
-// 				}()
+				// Chain source to flow using SourceToFlow utility
+				flows.SourceToFlow(ctx, source, flow)
 
-// 				return to, ctx, cancel
-// 			},
-// 		},
-// 		"cancelled-during-processing": {
-// 			expectedCollected: []string{"1", "2"}, // Should collect some values before cancellation
-// 			subject: func() (primitives.Flow[string, string], context.Context, context.CancelFunc) {
-// 				ctx, cancel := context.WithCancel(context.Background())
+				return flow, ctx
+			},
+		},
+		"chains-channel-source-to-string-flow": {
+			expected: []string{"2", "4", "6", "8", "10"},
+			subject: func() (primitives.Flow[int, string], context.Context) {
+				// Source: channel with int values
+				ch := make(chan int, 5)
+				go func() {
+					defer close(ch)
+					for _, item := range items {
+						ch <- item
+					}
+				}()
+				source := sources.Channel(ch).Build()
 
-// 				// First flow: int -> string
-// 				from := flows.Map(func(x int) (string, error) {
-// 					return strconv.Itoa(x), nil
-// 				}).Build()
+				// Flow: int -> int (doubles)
+				mapFlow := flows.
+					Map(func(x int) (int, error) { return x * 2, nil }).
+					Build()
 
-// 				// Second flow: string -> string
-// 				to := flows.Map(func(x string) (string, error) {
-// 					return "processed:" + x, nil
-// 				}).Build()
+				// Flow: int -> string
+				flow := flows.
+					Map(func(x int) (string, error) {
+						return strconv.Itoa(x), nil
+					}).
+					Build()
 
-// 				// Chain them using ToFlow utility
-// 				flows.ToFlow(ctx, from, to)
+				// Chain source to first flow
+				flows.SourceToFlow(ctx, source, mapFlow)
 
-// 				// Feed input to first flow with cancellation
-// 				go func() {
-// 					for i, item := range items {
-// 						from.In() <- item
-// 						if i == 1 { // Cancel after sending 2 items
-// 							cancel()
-// 						}
-// 					}
-// 					close(from.In())
-// 				}()
+				// Chain first flow to second flow
+				flows.ToFlow(ctx, mapFlow, flow)
 
-// 				return to, ctx, cancel
-// 			},
-// 		},
-// 	}
+				return flow, ctx
+			},
+		},
+		"chains-source-to-filter-to-string-flow": {
+			expected: []string{"2", "4"},
+			subject: func() (primitives.Flow[int, string], context.Context) {
+				// Source: int slice
+				source := sources.Slice(items).Build()
 
-// 	for name, c := range cases {
-// 		t.Run(name, func(t *testing.T) {
-// 			t.Parallel()
+				// Flow: int -> int (filter even numbers)
+				filter := flows.
+					Filter(func(x int) (bool, error) { return x%2 == 0, nil }).
+					Build()
 
-// 			// Given
-// 			flow, ctx, _ := c.subject()
+				// Flow: int -> string
+				flow := flows.
+					Map(func(x int) (string, error) {
+						return strconv.Itoa(x), nil
+					}).
+					Build()
 
-// 			// When
-// 			var collected []string
-// 			var wg sync.WaitGroup
-// 			wg.Add(1)
+				// Chain source to filter
+				flows.SourceToFlow(ctx, source, filter)
 
-// 			go func() {
-// 				defer wg.Done()
-// 				collected = helpers.Collect(ctx, flow.Out())
-// 			}()
+				// Chain filter to map
+				flows.ToFlow(ctx, filter, flow)
 
-// 			// Wait for processing to complete or timeout
-// 			select {
-// 			case <-time.After(1 * time.Second):
-// 				// Ensure cleanup
-// 			case <-ctx.Done():
-// 			}
+				return flow, ctx
+			},
+		},
+		"chains-empty-slice-source": {
+			expected: []string{},
+			subject: func() (primitives.Flow[int, string], context.Context) {
+				// Source: empty slice
+				source := sources.Slice([]int{}).Build()
 
-// 			wg.Wait()
+				// Flow: int -> string
+				flow := flows.
+					Map(func(x int) (string, error) {
+						return "processed:" + strconv.Itoa(x), nil
+					}).
+					Build()
 
-// 			// Then
-// 			if len(c.expectedCollected) > 0 {
-// 				assert.Subset(t, c.expectedCollected, collected)
-// 			} else {
-// 				assert.Empty(t, collected)
-// 			}
-// 		})
-// 	}
-// }
+				// Chain source to flow using SourceToFlow utility
+				flows.SourceToFlow(ctx, source, flow)
 
-// func TestToFlow_TypeSafety(t *testing.T) {
-// 	t.Parallel()
+				return flow, ctx
+			},
+		},
+		"chains-source-to-multiple-flows": {
+			expected: []string{"2", "4", "6", "8", "10"},
+			subject: func() (primitives.Flow[int, string], context.Context) {
+				// Source: int slice
+				source := sources.Slice(items).Build()
 
-// 	ctx := context.Background()
-// 	items := []int{1, 2, 3}
+				// Flow: int -> int (doubles)
+				doubleFlow := flows.
+					Map(func(x int) (int, error) { return x * 2, nil }).
+					Build()
 
-// 	cases := map[string]struct {
-// 		expected []float64
-// 		subject  func() (primitives.Flow[float64, float64], context.Context)
-// 	}{
-// 		"int-to-string-to-float64": {
-// 			expected: []float64{1.0, 2.0, 3.0},
-// 			subject: func() (primitives.Flow[float64, float64], context.Context) {
-// 				// First flow: int -> string
-// 				from := flows.Map(func(x int) (string, error) {
-// 					return strconv.Itoa(x), nil
-// 				}).Build()
+				// Flow: int -> string
+				flow := flows.
+					Map(func(x int) (string, error) {
+						return strconv.Itoa(x), nil
+					}).
+					Build()
 
-// 				// Second flow: string -> float64
-// 				to := flows.Map(func(x string) (float64, error) {
-// 					return strconv.ParseFloat(x, 64)
-// 				}).Build()
+				// Chain source to double flow
+				flows.SourceToFlow(ctx, source, doubleFlow)
 
-// 				// Chain them using ToFlow utility
-// 				flows.ToFlow(ctx, from, to)
+				// Chain double flow to string flow
+				flows.ToFlow(ctx, doubleFlow, flow)
 
-// 				// Feed input to first flow
-// 				go func() {
-// 					for _, item := range items {
-// 						from.In() <- item
-// 					}
-// 					close(from.In())
-// 				}()
+				return flow, ctx
+			},
+		},
+		"chains-source-with-cancelled-context": {
+			expected: []string{},
+			subject: func() (primitives.Flow[int, string], context.Context) {
+				// Source: int slice with cancelled context
+				ctx, cancel := context.WithCancel(ctx)
+				cancel()
+				source := sources.Slice(items).Context(ctx).Build()
 
-// 				return to, ctx
-// 			},
-// 		},
-// 	}
+				// Flow: int -> string
+				flow := flows.
+					Map(func(x int) (string, error) {
+						return strconv.Itoa(x), nil
+					}).
+					Build()
 
-// 	for name, c := range cases {
-// 		t.Run(name, func(t *testing.T) {
-// 			t.Parallel()
+				// Chain source to flow using SourceToFlow utility
+				flows.SourceToFlow(ctx, source, flow)
 
-// 			// Given
-// 			flow, ctx := c.subject()
+				return flow, ctx
+			},
+		},
+	}
 
-// 			// When
-// 			collected := helpers.Collect(ctx, flow.Out())
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-// 			// Then
-// 			assert.ElementsMatch(t, c.expected, collected)
-// 		})
-// 	}
-// }
+			// Given
+			flow, ctx := c.subject()
 
-// func TestToFlow_WithSource(t *testing.T) {
-// 	t.Parallel()
+			// When
+			collector := helpers.NewCollector[string](ctx)
+			flow.ToSink(collector)
+			collected := collector.Items()
 
-// 	ctx := context.Background()
-// 	items := []int{1, 2, 3, 4, 5}
-
-// 	cases := map[string]struct {
-// 		expected []string
-// 		subject  func() (primitives.Flow[string, string], context.Context)
-// 	}{
-// 		"source-to-map-to-filter": {
-// 			expected: []string{"4", "8"},
-// 			subject: func() (primitives.Flow[string, string], context.Context) {
-// 				// Source: provides int values
-// 				source := sources.Slice(items).Build()
-
-// 				// First flow: int -> int (doubles)
-// 				from := flows.Map(func(x int) (int, error) {
-// 					return x * 2, nil
-// 				}).Build()
-
-// 				// Second flow: int -> string (filters even numbers)
-// 				filter := flows.Filter(func(x int) (bool, error) {
-// 					return x%2 == 0, nil
-// 				}).Build()
-
-// 				to := flows.Map(func(x int) (string, error) {
-// 					return strconv.Itoa(x), nil
-// 				}).Build()
-
-// 				// Chain filter to map
-// 				flows.ToFlow(ctx, filter, to)
-
-// 				// Connect source to first flow
-// 				source.ToFlow(from)
-
-// 				// Chain first flow to filter
-// 				flows.ToFlow(ctx, from, filter)
-
-// 				return to, ctx
-// 			},
-// 		},
-// 	}
-
-// 	for name, c := range cases {
-// 		t.Run(name, func(t *testing.T) {
-// 			t.Parallel()
-
-// 			// Given
-// 			flow, ctx := c.subject()
-
-// 			// When
-// 			collected := helpers.Collect(ctx, flow.Out())
-
-// 			// Then
-// 			assert.ElementsMatch(t, c.expected, collected)
-// 		})
-// 	}
-// }
-
-// func TestToFlow_ConcurrentAccess(t *testing.T) {
-// 	t.Parallel()
-
-// 	ctx := context.Background()
-// 	items := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
-
-// 	cases := map[string]struct {
-// 		expected []string
-// 		subject  func() (primitives.Flow[string, string], context.Context)
-// 	}{
-// 		"concurrent-processing": {
-// 			expected: []string{"2", "4", "6", "8", "10", "12", "14", "16", "18", "20"},
-// 			subject: func() (primitives.Flow[string, string], context.Context) {
-// 				// First flow: int -> int (doubles) with parallelism
-// 				from := flows.Map(func(x int) (int, error) {
-// 					return x * 2, nil
-// 				}).Parallelism(3).Build()
-
-// 				// Second flow: int -> string
-// 				to := flows.Map(func(x int) (string, error) {
-// 					return strconv.Itoa(x), nil
-// 				}).Build()
-
-// 				// Chain them using ToFlow utility
-// 				flows.ToFlow(ctx, from, to)
-
-// 				// Feed input to first flow
-// 				go func() {
-// 					for _, item := range items {
-// 						from.In() <- item
-// 					}
-// 					close(from.In())
-// 				}()
-
-// 				return to, ctx
-// 			},
-// 		},
-// 	}
-
-// 	for name, c := range cases {
-// 		t.Run(name, func(t *testing.T) {
-// 			t.Parallel()
-
-// 			// Given
-// 			flow, ctx := c.subject()
-
-// 			// When
-// 			collected := helpers.Collect(ctx, flow.Out())
-
-// 			// Then
-// 			assert.ElementsMatch(t, c.expected, collected)
-// 		})
-// 	}
-// }
+			// Then
+			assert.ElementsMatch(t, c.expected, collected)
+		})
+	}
+}
