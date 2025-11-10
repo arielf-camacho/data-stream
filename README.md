@@ -117,6 +117,7 @@ Data sources that emit values into the stream:
 | ---------------- | ------------------------------------ | ------------------------------------------------ |
 | **SingleSource** | Emits a single value from a function | [docs/sources/single.md](docs/sources/single.md) |
 | **SliceSource**  | Emits all values from a slice        | [docs/sources/slice.md](docs/sources/slice.md)   |
+| **ChannelSource** | Emits values from a Go channel       | [docs/sources/channel.md](docs/sources/channel.md) |
 
 ### Flows
 
@@ -130,6 +131,16 @@ Data transformation operators that process values:
 | **SplitFlow**       | Splits a stream based on a predicate    | [docs/flows/split.md](docs/flows/split.md)               |
 | **SpreadFlow**      | Duplicates a stream to multiple outputs | [docs/flows/spread.md](docs/flows/spread.md)             |
 | **PassThroughFlow** | Passes values through unchanged         | [docs/flows/pass-through.md](docs/flows/pass-through.md) |
+
+### Chain Utilities
+
+Utility functions for chaining components when type constraints prevent
+direct method chaining:
+
+| Function      | Description                                    | Documentation                              |
+| ------------- | ---------------------------------------------- | ------------------------------------------ |
+| **ToFlow**    | Chains two flows with compatible types         | [docs/flows/chain.md](docs/flows/chain.md) |
+| **SourceToFlow** | Chains a source to a flow with compatible types | [docs/flows/chain.md](docs/flows/chain.md) |
 
 ### Sinks
 
@@ -146,6 +157,7 @@ Data consumers that receive values from the stream:
 Check out the [examples](examples/) directory for complete working examples:
 
 - [Single Source](examples/single-source/) - Basic single value streaming
+- [Channel](examples/channel/) - Using ChannelSource with flows
 - [Filter](examples/filter/) - Filtering and merging streams
 - [Merge](examples/merge/) - Merging multiple streams
 - [Split](examples/split/) - Splitting streams based on conditions
