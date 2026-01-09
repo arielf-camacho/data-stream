@@ -146,17 +146,19 @@ direct method chaining:
 
 Data consumers that receive values from the stream:
 
-| Component       | Description                       | Documentation                                  |
-| --------------- | --------------------------------- | ---------------------------------------------- |
-| **ChannelSink** | Writes values to a Go channel     | [docs/sinks/channel.md](docs/sinks/channel.md) |
-| **WriterSink**  | Writes byte data to an io.Writer  | [docs/sinks/writer.md](docs/sinks/writer.md)   |
-| **ReduceSink**  | Reduces values to a single result | [docs/sinks/reduce.md](docs/sinks/reduce.md)   |
+| Component       | Description                         | Documentation                                  |
+| --------------- | ----------------------------------- | ---------------------------------------------- |
+| **ChannelSink** | Writes values to a Go channel       | [docs/sinks/channel.md](docs/sinks/channel.md) |
+| **WriterSink**  | Writes byte data to an io.Writer    | [docs/sinks/writer.md](docs/sinks/writer.md)   |
+| **ReduceSink**  | Reduces values to a single result   | [docs/sinks/reduce.md](docs/sinks/reduce.md)   |
+| **SingleSink**  | Captures a single value from stream | [docs/sinks/single.md](docs/sinks/single.md)   |
 
 ## Examples
 
 Check out the [examples](examples/) directory for complete working examples:
 
 - [Single Source](examples/single-source/) - Basic single value streaming
+- [Single Value](examples/single-value/) - Using SingleSink to capture a single result
 - [Channel](examples/channel/) - Using ChannelSource with flows
 - [Filter](examples/filter/) - Filtering and merging streams
 - [Merge](examples/merge/) - Merging multiple streams
