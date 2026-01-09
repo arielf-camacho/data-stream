@@ -113,10 +113,10 @@ make all           # Run tidy, vet, lint, and coverage
 
 Data sources that emit values into the stream:
 
-| Component        | Description                          | Documentation                                    |
-| ---------------- | ------------------------------------ | ------------------------------------------------ |
-| **SingleSource** | Emits a single value from a function | [docs/sources/single.md](docs/sources/single.md) |
-| **SliceSource**  | Emits all values from a slice        | [docs/sources/slice.md](docs/sources/slice.md)   |
+| Component         | Description                          | Documentation                                      |
+| ----------------- | ------------------------------------ | -------------------------------------------------- |
+| **SingleSource**  | Emits a single value from a function | [docs/sources/single.md](docs/sources/single.md)   |
+| **SliceSource**   | Emits all values from a slice        | [docs/sources/slice.md](docs/sources/slice.md)     |
 | **ChannelSource** | Emits values from a Go channel       | [docs/sources/channel.md](docs/sources/channel.md) |
 
 ### Flows
@@ -137,26 +137,28 @@ Data transformation operators that process values:
 Utility functions for chaining components when type constraints prevent
 direct method chaining:
 
-| Function      | Description                                    | Documentation                              |
-| ------------- | ---------------------------------------------- | ------------------------------------------ |
-| **ToFlow**    | Chains two flows with compatible types         | [docs/flows/chain.md](docs/flows/chain.md) |
+| Function         | Description                                     | Documentation                              |
+| ---------------- | ----------------------------------------------- | ------------------------------------------ |
+| **ToFlow**       | Chains two flows with compatible types          | [docs/flows/chain.md](docs/flows/chain.md) |
 | **SourceToFlow** | Chains a source to a flow with compatible types | [docs/flows/chain.md](docs/flows/chain.md) |
 
 ### Sinks
 
 Data consumers that receive values from the stream:
 
-| Component       | Description                       | Documentation                                  |
-| --------------- | --------------------------------- | ---------------------------------------------- |
-| **ChannelSink** | Writes values to a Go channel     | [docs/sinks/channel.md](docs/sinks/channel.md) |
-| **WriterSink**  | Writes byte data to an io.Writer  | [docs/sinks/writer.md](docs/sinks/writer.md)   |
-| **ReduceSink**  | Reduces values to a single result | [docs/sinks/reduce.md](docs/sinks/reduce.md)   |
+| Component       | Description                         | Documentation                                  |
+| --------------- | ----------------------------------- | ---------------------------------------------- |
+| **ChannelSink** | Writes values to a Go channel       | [docs/sinks/channel.md](docs/sinks/channel.md) |
+| **WriterSink**  | Writes byte data to an io.Writer    | [docs/sinks/writer.md](docs/sinks/writer.md)   |
+| **ReduceSink**  | Reduces values to a single result   | [docs/sinks/reduce.md](docs/sinks/reduce.md)   |
+| **SingleSink**  | Captures a single value from stream | [docs/sinks/single.md](docs/sinks/single.md)   |
 
 ## Examples
 
 Check out the [examples](examples/) directory for complete working examples:
 
 - [Single Source](examples/single-source/) - Basic single value streaming
+- [Single Value](examples/single-value/) - Using SingleSink to capture a single result
 - [Channel](examples/channel/) - Using ChannelSource with flows
 - [Filter](examples/filter/) - Filtering and merging streams
 - [Merge](examples/merge/) - Merging multiple streams
@@ -191,3 +193,10 @@ releases.
 ## License
 
 This project is licensed under the MIT License.
+
+## Special recognition
+
+Much of the content in this library got the inspiration from
+[reugn go-streams](https://github.com/reugn/go-streams). Therefore, thanks to
+the author(s) is very much in order. Please, take a look also to that work for
+reference.

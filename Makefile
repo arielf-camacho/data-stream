@@ -12,7 +12,7 @@ init:
 	@echo "----------------------------------------------------------------"
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.5
 	go install github.com/matm/gocov-html/cmd/gocov-html@v1.4.0
-	go install github.com/axw/gocov/gocov@v1.2.0
+	go install github.com/jandelgado/gcov2lcov@latest
 	go install github.com/cespare/reflex@v0.3.1
 	go install github.com/vektra/mockery/v3@v3.5.0
 
@@ -70,20 +70,27 @@ coverage:
 	@echo "----------------------------------------------------------------"
 	@echo " ✅ Testing with coverage..."
 	@echo "----------------------------------------------------------------"
-	go test -tags test -count=1 -coverpkg="$(PKG_LIST)" ./... -coverprofile=coverage.out
+	go test -count=1 -coverpkg="$(PKG_LIST)" ./... -coverprofile=coverage.out
 	@test_result=$$?; \
 	if [ $$test_result -ne 0 ]; then \
 			exit $$test_result; \
 	fi; \
-	gocov convert coverage.out | gocov report
+	go tool cover -func=coverage.out
 
 coverage/html:
 	@echo "----------------------------------------------------------------"
 	@echo " ✅ Testing with coverage (HTML report)..."
 	@echo "----------------------------------------------------------------"
-	go test -tags test -count=1 -coverpkg="$(PKG_LIST)" ./... -coverprofile=coverage.out
+	go test -count=1 -coverpkg="$(PKG_LIST)" ./... -coverprofile=coverage.out
 	@test_result=$$?; \
 	if [ $$test_result -ne 0 ]; then \
 			exit $$test_result; \
 	fi; \
-	gocov convert coverage.out | gocov-html > coverage.html
+	gcov2lcov -infile=coverage.out -outfile=coverage.lcov && \
+	sed 's|^SF:data-stream/|SF:|g' coverage.lcov > \
+		coverage.lcov.tmp && mv coverage.lcov.tmp coverage.lcov && \
+	genhtml coverage.lcov -o coverage_html \
+		--title "data-stream coverage" --legend --demangle-cpp
+	@echo "----------------------------------------------------------------"
+	@echo "Coverage report generated at: coverage_html/index.html"
+	@echo "----------------------------------------------------------------"

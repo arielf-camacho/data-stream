@@ -38,15 +38,12 @@ jobs:
         env:
           EXPECTED_COVERAGE: ${{ vars.EXPECTED_COVERAGE }}
         run: |
-          go get github.com/ericchiang/pup
-          go install github.com/ericchiang/pup
-
           echo "----------------------------------------------------------------"
           echo " ✅ Testing with coverage, expected: $EXPECTED_COVERAGE%..."
           echo "----------------------------------------------------------------"
-          make coverage/html
-          s=$(cat coverage.html | pup "div#totalcov text{}")
-          perc=$(echo "$s" | grep -o '[0-9\.]*%' | sed 's/%//')
+          make coverage
+          # Extract total coverage from go tool cover output
+          perc=$(go tool cover -func=coverage.out | grep total | grep -oE '[0-9]+\.[0-9]+')
           echo "$perc >= $EXPECTED_COVERAGE" | bc > .cov_success.out
           echo $perc > .coverage.out
 
