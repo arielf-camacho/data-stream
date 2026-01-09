@@ -113,10 +113,10 @@ make all           # Run tidy, vet, lint, and coverage
 
 Data sources that emit values into the stream:
 
-| Component        | Description                          | Documentation                                    |
-| ---------------- | ------------------------------------ | ------------------------------------------------ |
-| **SingleSource** | Emits a single value from a function | [docs/sources/single.md](docs/sources/single.md) |
-| **SliceSource**  | Emits all values from a slice        | [docs/sources/slice.md](docs/sources/slice.md)   |
+| Component         | Description                          | Documentation                                      |
+| ----------------- | ------------------------------------ | -------------------------------------------------- |
+| **SingleSource**  | Emits a single value from a function | [docs/sources/single.md](docs/sources/single.md)   |
+| **SliceSource**   | Emits all values from a slice        | [docs/sources/slice.md](docs/sources/slice.md)     |
 | **ChannelSource** | Emits values from a Go channel       | [docs/sources/channel.md](docs/sources/channel.md) |
 
 ### Flows
@@ -137,9 +137,9 @@ Data transformation operators that process values:
 Utility functions for chaining components when type constraints prevent
 direct method chaining:
 
-| Function      | Description                                    | Documentation                              |
-| ------------- | ---------------------------------------------- | ------------------------------------------ |
-| **ToFlow**    | Chains two flows with compatible types         | [docs/flows/chain.md](docs/flows/chain.md) |
+| Function         | Description                                     | Documentation                              |
+| ---------------- | ----------------------------------------------- | ------------------------------------------ |
+| **ToFlow**       | Chains two flows with compatible types          | [docs/flows/chain.md](docs/flows/chain.md) |
 | **SourceToFlow** | Chains a source to a flow with compatible types | [docs/flows/chain.md](docs/flows/chain.md) |
 
 ### Sinks
@@ -191,3 +191,10 @@ releases.
 ## License
 
 This project is licensed under the MIT License.
+
+## Special recognition
+
+Much of the content in this library got the inspiration from
+[reugn go-streams](https://github.com/reugn/go-streams). Therefore, thanks to
+the author(s) is very much in order. Please, take a look also to that work for
+reference.
